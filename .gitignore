@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.DS_Store
+dist/
+build/
+.next/
+*.log
+
+# Sensitive Firebase config
+trace-*-firebase-adminsdk-*.json
