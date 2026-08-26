@@ -1,0 +1,139 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+model User {
+  id                 String    @id @default(uuid())
+  name               String
+  email              String    @unique
+  phone              String    @unique
+  password_hash      String
+  role               String
+  home_city_id       String?
+  notification_prefs Json?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  deleted_at         DateTime?
+
+  complaints     Complaint[]
+  status_history StatusHistory[]
+  refresh_tokens RefreshToken[]
+}
+
+model Complaint {
+  id             String    @id @default(uuid())
+  user_id        String
+  category       String
+  description    String
+  image_url      String
+  image_hash     String?
+  latitude       Float
+  longitude      Float
+  geom           Unsupported("geometry(Point, 4326)")?
+  address        String?
+  city_id        String?
+  status         String    @default("SUBMITTED")
+  severity_score Float?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+  deleted_at     DateTime?
+
+  user User @relation(fields: [user_id], references: [id])
+  
+  ai_analysis       AiAnalysis?
+  duplicate_matches DuplicateMatch[] @relation("ComplaintMatches")
+  matched_by        DuplicateMatch[] @relation("MatchedComplaint")
+  status_history    StatusHistory[]
+  post              Post?
+
+  @@index([geom], type: Gist)
+  @@index([status, created_at])
+  @@index([user_id])
+}
+
+model AiAnalysis {
+  id                       String   @id @default(uuid())
+  complaint_id             String   @unique
+  authenticity_score       Float?
+  manipulation_score       Float?
+  ai_generated_probability Float?
+  duplicate_score          Float?
+  model_version            String?
+  heatmap_url              String?
+  verdict                  String?
+  analyzed_at              DateTime @default(now())
+
+  complaint Complaint @relation(fields: [complaint_id], references: [id])
+}
+
+model DuplicateMatch {
+  id                   String   @id @default(uuid())
+  complaint_id         String
+  matched_complaint_id String
+  similarity_score     Float
+  method               String
+  created_at           DateTime @default(now())
+
+  complaint         Complaint @relation("ComplaintMatches", fields: [complaint_id], references: [id])
+  matched_complaint Complaint @relation("MatchedComplaint", fields: [matched_complaint_id], references: [id])
+
+  @@index([complaint_id])
+}
+
+model Authority {
+  id              String   @id @default(uuid())
+  city_id         String
+  department_name String
+  category        String
+  twitter_handle  String?
+  email           String?
+  phone           String?
+  sla_hours       Int?
+}
+
+model City {
+  id       String @id @default(uuid())
+  name     String
+  state    String
+  timezone String
+}
+
+model Post {
+  id           String   @id @default(uuid())
+  complaint_id String   @unique
+  tweet_id     String?
+  posted_at    DateTime?
+  post_status  String   @default("pending")
+  retry_count  Int      @default(0)
+
+  complaint Complaint @relation(fields: [complaint_id], references: [id])
+}
+
+model StatusHistory {
+  id           String   @id @default(uuid())
+  complaint_id String
+  from_status  String?
+  to_status    String
+  changed_by   String?
+  reason       String?
+  changed_at   DateTime @default(now())
+
+  complaint Complaint @relation(fields: [complaint_id], references: [id])
+  user      User?     @relation(fields: [changed_by], references: [id])
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  user_id    String
+  token_hash String
+  expires_at DateTime
+  revoked_at DateTime?
+
+  user User @relation(fields: [user_id], references: [id])
+}
