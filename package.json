@@ -6,7 +6,7 @@
     "packages/*"
   ],
   "scripts": {
-    "prebuild": "npx prisma generate --schema=apps/api/prisma/schema.prisma",
+    "prebuild": "node node_modules/prisma/build/index.js generate --schema=apps/api/prisma/schema.prisma",
     "build": "npx turbo run build",
     "dev": "npx turbo run dev",
     "lint": "npx turbo run lint",
