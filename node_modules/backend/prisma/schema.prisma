@@ -5,7 +5,6 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"]
 }
 
 model User {
@@ -35,7 +34,6 @@ model Complaint {
   image_hash     String?
   latitude       Float
   longitude      Float
-  geom           Unsupported("geometry(Point, 4326)")?
   address        String?
   city_id        String?
   status         String    @default("SUBMITTED")
@@ -52,7 +50,6 @@ model Complaint {
   status_history    StatusHistory[]
   post              Post?
 
-  @@index([geom], type: Gist)
   @@index([status, created_at])
   @@index([user_id])
 }
