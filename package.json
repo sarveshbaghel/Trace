@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "prebuild": "node node_modules/prisma/build/index.js generate --schema=apps/api/prisma/schema.prisma",
-    "build": "npx turbo run build",
+    "build": "chmod -R +x node_modules/.bin && node node_modules/turbo/bin/turbo run build",
     "dev": "npx turbo run dev",
     "lint": "npx turbo run lint",
     "test": "npx turbo run test"
