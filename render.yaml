@@ -2,6 +2,7 @@ services:
   # Backend NestJS API
   - type: web
     name: trace-api
+    plan: free
     env: node
     buildCommand: npm install && npx prisma generate --schema=apps/api/prisma/schema.prisma && npx turbo run build --filter=backend
     # Push database schema, then start NestJS production build
