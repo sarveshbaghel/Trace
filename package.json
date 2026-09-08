@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "postinstall": "npx prisma generate --schema=apps/api/prisma/schema.prisma",
+    "prebuild": "npx prisma generate --schema=apps/api/prisma/schema.prisma",
     "build": "npx turbo run build",
     "dev": "npx turbo run dev",
     "lint": "npx turbo run lint",
