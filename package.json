@@ -12,7 +12,8 @@
     "lint": "npx turbo run lint",
     "test": "npx turbo run test"
   },
-  "devDependencies": {
-    "turbo": "latest"
+  "dependencies": {
+    "turbo": "latest",
+    "prisma": "^6.4.1"
   }
 }
