@@ -1,13 +1,13 @@
 import axios from 'axios';
 
-const BASE_URL = 'http://localhost:3000/api/v1'; // Will be replaced with real backend URL
+const BASE_URL = 'https://trace-7h2o.onrender.com/api/v1'; // Live Render backend URL
 
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 10000,
 });
 
-export const CivicFixApi = {
+export const TraceApi = {
   // --- Auth ---
   login: async (data: any) => {
     const response = await api.post('/auth/login', data);
@@ -49,6 +49,11 @@ export const CivicFixApi = {
     const response = await api.get(`/reports/${id}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
+    return response.data;
+  },
+
+  getMapComplaints: async () => {
+    const response = await api.get('/complaints/map');
     return response.data;
   },
 

@@ -8,6 +8,8 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
 import { ReportScreen } from '../screens/ReportScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
+import { MapScreen } from '../screens/MapScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -26,6 +28,8 @@ export const AppNavigator = () => {
         <Stack.Screen name="History" component={HistoryScreen} />
         <Stack.Screen name="Report" component={ReportScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="Map" component={MapScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

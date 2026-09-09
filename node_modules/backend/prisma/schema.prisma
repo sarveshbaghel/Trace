@@ -1,5 +1,5 @@
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
@@ -8,7 +8,7 @@ generator client {
 }
 
 model User {
-  id                 String    @id @default(uuid())
+  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
   name               String
   email              String    @unique
   phone              String    @unique
@@ -26,8 +26,8 @@ model User {
 }
 
 model Complaint {
-  id             String    @id @default(uuid())
-  user_id        String
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  user_id        String    @db.ObjectId
   category       String
   description    String
   image_url      String
@@ -55,8 +55,8 @@ model Complaint {
 }
 
 model AiAnalysis {
-  id                       String   @id @default(uuid())
-  complaint_id             String   @unique
+  id                       String   @id @default(auto()) @map("_id") @db.ObjectId
+  complaint_id             String   @unique @db.ObjectId
   authenticity_score       Float?
   manipulation_score       Float?
   ai_generated_probability Float?
@@ -70,9 +70,9 @@ model AiAnalysis {
 }
 
 model DuplicateMatch {
-  id                   String   @id @default(uuid())
-  complaint_id         String
-  matched_complaint_id String
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  complaint_id         String   @db.ObjectId
+  matched_complaint_id String   @db.ObjectId
   similarity_score     Float
   method               String
   created_at           DateTime @default(now())
@@ -84,7 +84,7 @@ model DuplicateMatch {
 }
 
 model Authority {
-  id              String   @id @default(uuid())
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
   city_id         String
   department_name String
   category        String
@@ -95,15 +95,15 @@ model Authority {
 }
 
 model City {
-  id       String @id @default(uuid())
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
   name     String
   state    String
   timezone String
 }
 
 model Post {
-  id           String   @id @default(uuid())
-  complaint_id String   @unique
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  complaint_id String   @unique @db.ObjectId
   tweet_id     String?
   posted_at    DateTime?
   post_status  String   @default("pending")
@@ -113,11 +113,11 @@ model Post {
 }
 
 model StatusHistory {
-  id           String   @id @default(uuid())
-  complaint_id String
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  complaint_id String   @db.ObjectId
   from_status  String?
   to_status    String
-  changed_by   String?
+  changed_by   String?  @db.ObjectId
   reason       String?
   changed_at   DateTime @default(now())
 
@@ -126,8 +126,8 @@ model StatusHistory {
 }
 
 model RefreshToken {
-  id         String    @id @default(uuid())
-  user_id    String
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  user_id    String    @db.ObjectId
   token_hash String
   expires_at DateTime
   revoked_at DateTime?

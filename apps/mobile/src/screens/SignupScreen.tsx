@@ -44,7 +44,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation, onSignup
         <View style={styles.card}>
           <View style={styles.header}>
             <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Join CivicFix today</Text>
+            <Text style={styles.subtitle}>Join Trace today</Text>
           </View>
 
           {error && (

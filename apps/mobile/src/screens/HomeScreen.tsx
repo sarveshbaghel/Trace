@@ -11,8 +11,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>CivicFix</Text>
-          <Text style={styles.subtitle}>Help improve your community</Text>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+            <View>
+              <Text style={styles.title}>Trace</Text>
+              <Text style={styles.subtitle}>Help improve your community</Text>
+            </View>
+            <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.profileButton}>
+              <Text style={styles.profileButtonText}>👤</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -27,6 +34,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               <Text style={[styles.cardTitle, { color: theme.colors.surface }]}>Report an Issue</Text>
               <Text style={[styles.cardSubtitle, { color: theme.colors.surface, opacity: 0.8 }]}>
                 Take a photo and report a civic issue
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        {/* Live Map Card */}
+        <TouchableOpacity
+          style={[styles.card, { backgroundColor: '#10B981' }]} // Using a distinct color like green
+          onPress={() => navigation.navigate('Map')}
+        >
+          <View style={styles.cardContent}>
+            <View style={styles.cardTextContainer}>
+              <Text style={[styles.cardTitle, { color: theme.colors.surface }]}>Live Map</Text>
+              <Text style={[styles.cardSubtitle, { color: theme.colors.surface, opacity: 0.8 }]}>
+                View all reported issues on the map
               </Text>
             </View>
           </View>
@@ -136,5 +158,18 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: theme.colors.text,
     textAlign: 'center',
+  },
+  profileButton: {
+    backgroundColor: theme.colors.surface,
+    padding: 10,
+    borderRadius: 25,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  profileButtonText: {
+    fontSize: 24,
   },
 });

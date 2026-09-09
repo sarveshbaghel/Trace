@@ -45,7 +45,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
         <View style={styles.card}>
           <View style={styles.header}>
             <Text style={styles.logoIcon}>⚠️</Text>
-            <Text style={styles.title}>CivicFix</Text>
+            <Text style={styles.title}>Trace</Text>
             <Text style={styles.subtitle}>Help improve your community today</Text>
           </View>
 
@@ -99,7 +99,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
             style={styles.signupButton}
             onPress={() => navigation.navigate('Signup')}
           >
-            <Text style={styles.signupText}>New to CivicFix? Create account</Text>
+            <Text style={styles.signupText}>New to Trace? Create account</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
