@@ -1,30 +1,18 @@
+﻿import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import helmet from 'helmet';
-import cookieParser from 'cookie-parser';
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  
+  app.enableCors();
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
-  // Helmet Security Headers (CSP, Frameguard DENY, nosniff, HSTS)
-  app.use(
-    helmet({
-      frameguard: { action: 'deny' },
-      contentSecurityPolicy: true,
-    }),
-  );
-
-  // Cookie Parser with Secret
-  app.use(cookieParser(process.env.COOKIE_SECRET));
-
-  // CORS Configuration
-  app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || 'http://localhost:3000',
-    credentials: true,
-  });
-
-  const port = process.env.PORT || 4000;
+  const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`Backend server running securely on port ${port}`);
+  console.log(`TRACE API is running on: http://localhost:${port}`);
 }
 bootstrap();
