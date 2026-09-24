@@ -6,6 +6,9 @@
     "apps/*",
     "packages/*"
   ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "prebuild": "node node_modules/prisma/build/index.js generate --schema=apps/api/prisma/schema.prisma",
     "build": "chmod -R +x node_modules/.bin && node node_modules/turbo/bin/turbo run build",
