@@ -16,14 +16,19 @@ import {
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import Geolocation from 'react-native-geolocation-service';
 import { theme } from '../theme';
+import { useAuthStore } from '../store/authStore';
+import { TraceApi } from '../api/TraceApi';
+import { OLA_MAPS_API_KEY } from '../config/env';
 
 // Safe MapView import — prevents crash if native module isn't linked
 let MapViewComponent: any = null;
 let MarkerComponent: any = null;
+let UrlTileComponent: any = null;
 try {
   const maps = require('react-native-maps');
   MapViewComponent = maps.default;
   MarkerComponent = maps.Marker;
+  UrlTileComponent = maps.UrlTile;
 } catch (e) {
   console.warn('react-native-maps is not available:', e);
 }
@@ -56,13 +61,13 @@ interface ReportScreenProps {
 }
 
 export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
+  const token = useAuthStore(state => state.token);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [issueType, setIssueType] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [successResponse, setSuccessResponse] = useState<string | null>(null);
   const [dropdownExpanded, setDropdownExpanded] = useState(false);
   const [locationMode, setLocationMode] = useState<'live' | 'map' | null>(null);
   const [address, setAddress] = useState<string | null>(null);
@@ -181,7 +186,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
             'Failed to detect location. Ensure location is enabled in device settings.',
           );
         },
-        { enableHighAccuracy: false, timeout: 20000, maximumAge: 1000 },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
       );
     } else {
       setLocationLoading(false);
@@ -209,15 +214,38 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
     setLocationLoading(false);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setLoading(true);
-    // Mocking API call
-    setTimeout(() => {
+    
+    try {
+      const formData = new FormData();
+      formData.append('category', issueType || 'Other');
+      formData.append('description', description);
+      formData.append('latitude', String(latitude));
+      formData.append('longitude', String(longitude));
+      if (address) {
+        formData.append('address', address);
+      }
+      
+      if (imageUri) {
+        formData.append('image', {
+          uri: imageUri,
+          type: 'image/jpeg',
+          name: 'photo.jpg',
+        } as any);
+      }
+
+      if (!token) throw new Error('You must be logged in to report an issue');
+      
+      const response = await TraceApi.createReport(token, formData);
+
       setLoading(false);
-      setSuccessResponse(
-        'Report successfully logged and routed to the public works department.',
-      );
-    }, 1500);
+      // Navigate to summary screen passing the newly created report
+      navigation.replace('ReportSummary', { report: response });
+    } catch (e: any) {
+      setLoading(false);
+      alert(e.message || 'Error submitting report');
+    }
   };
 
   const issueTypes = [
@@ -227,31 +255,6 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
     'Water leakage',
     'Other',
   ];
-
-  // ─── Success State ───────────────────────────────────────────────
-  if (successResponse) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.successContainer}>
-          <Text style={styles.successEmoji}>✅</Text>
-          <Text style={styles.successTitle}>Report Submitted!</Text>
-          <Text style={styles.successSubtitle}>
-            Thank you for helping improve your community.
-          </Text>
-
-          <View style={styles.successCard}>
-            <Text style={styles.successCardText}>{successResponse}</Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.submitButton}
-            onPress={() => navigation.goBack()}>
-            <Text style={styles.submitButtonText}>Done</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   // ─── Map Fallback (when Maps SDK is unavailable) ─────────────────
   const mapFallback = (
@@ -273,6 +276,24 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
         keyboardShouldPersistTaps="handled">
         {/* Header */}
         <Text style={styles.title}>Report an Issue</Text>
+
+        {/* Photo Upload */}
+        <Text style={styles.label}>Upload Photo</Text>
+        {imageUri && (
+          <Image source={{ uri: imageUri }} style={styles.previewImage} />
+        )}
+        <View style={styles.buttonRow}>
+          <TouchableOpacity style={styles.outlineButton} onPress={handleCamera}>
+            <Text style={styles.outlineButtonIcon}>📷</Text>
+            <Text style={styles.outlineButtonLabel}>Camera</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.outlineButton}
+            onPress={handleGallery}>
+            <Text style={styles.outlineButtonIcon}>🖼️</Text>
+            <Text style={styles.outlineButtonLabel}>Gallery</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Date / Time */}
         <View style={styles.dateContainer}>
@@ -341,24 +362,6 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
           maxLength={500}
         />
         <Text style={styles.charCount}>{description.length}/500</Text>
-
-        {/* Photo Upload */}
-        <Text style={styles.label}>Upload Photo</Text>
-        {imageUri && (
-          <Image source={{ uri: imageUri }} style={styles.previewImage} />
-        )}
-        <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.outlineButton} onPress={handleCamera}>
-            <Text style={styles.outlineButtonIcon}>📷</Text>
-            <Text style={styles.outlineButtonLabel}>Camera</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.outlineButton}
-            onPress={handleGallery}>
-            <Text style={styles.outlineButtonIcon}>🖼️</Text>
-            <Text style={styles.outlineButtonLabel}>Gallery</Text>
-          </TouchableOpacity>
-        </View>
 
         {/* Location */}
         <Text style={styles.label}>Location</Text>
@@ -442,6 +445,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
       <Modal
         visible={showMapModal}
         animationType="slide"
+        hardwareAccelerated={true}
         onRequestClose={() => setShowMapModal(false)}>
         <SafeAreaView style={styles.modalContainer}>
           {/* Modal Header */}
@@ -465,6 +469,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
               <MapErrorBoundary fallback={mapFallback}>
                 <MapViewComponent
                   style={styles.modalMap}
+                  mapType="none"
                   initialRegion={{
                     latitude: tempLat,
                     longitude: tempLng,
@@ -475,6 +480,13 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
                     setTempLat(region.latitude);
                     setTempLng(region.longitude);
                   }}>
+                  {UrlTileComponent && (
+                    <UrlTileComponent
+                      urlTemplate={`https://api.olamaps.io/tiles/vector/v1/styles/default-light/rendered/{z}/{x}/{y}.png?api_key=${OLA_MAPS_API_KEY}`}
+                      maximumZ={19}
+                      flipY={false}
+                    />
+                  )}
                   {MarkerComponent && (
                     <MarkerComponent
                       coordinate={{ latitude: tempLat, longitude: tempLng }}

@@ -7,6 +7,10 @@ import { ComplaintsModule } from './complaints/complaints.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
+import { AuthModule } from './auth/auth.module';
+import { TwitterModule } from './common/twitter/twitter.module';
+import { FirebaseModule } from './common/firebase/firebase.module';
+
 @Module({
   imports: [
     ThrottlerModule.forRoot([
@@ -16,8 +20,11 @@ import { AppService } from './app.service';
       },
     ]),
     PrismaModule,
+    FirebaseModule,
     AdminModule,
     ComplaintsModule,
+    AuthModule,
+    TwitterModule,
   ],
   controllers: [AppController],
   providers: [

@@ -7,11 +7,22 @@ interface LoginScreenProps {
   onLoginSuccess?: (token: string) => void;
 }
 
+import { useAuthStore } from '../store/authStore';
+import { TraceApi } from '../api/TraceApi';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { getAuth, signInWithCredential, GoogleAuthProvider } from '@react-native-firebase/auth';
+
+GoogleSignin.configure({
+  webClientId: '662612653819-v8mu0tkknv7vqofekhmulljere845tgf.apps.googleusercontent.com',
+});
+
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const setAuth = useAuthStore(state => state.setAuth);
 
   const handleLogin = async () => {
     if (!email || !password) return;
@@ -19,20 +30,49 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
     setLoading(true);
     setError(null);
     try {
-      // Mock API call for now. In reality, we'd use Axios here.
-      // const response = await apiClient.login({ email, password });
-      setTimeout(() => {
-        setLoading(false);
-        // navigation.navigate('Home'); or handle via context
-        if (onLoginSuccess) {
-          onLoginSuccess('mock-token');
-        } else {
-          navigation.navigate('Home');
-        }
-      }, 1000);
+      const data = await TraceApi.login({ email, password });
+      
+      setLoading(false);
+      setAuth(data.accessToken, data.user);
+      
+      if (onLoginSuccess) {
+        onLoginSuccess(data.accessToken);
+      }
     } catch (e: any) {
       setLoading(false);
-      setError(`Login failed: ${e.message}`);
+      const msg = e.response?.data?.message || e.response?.data?.errors?.[0]?.message || e.message;
+      setError(`Login failed: ${msg}`);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+      if (response.type !== 'success') {
+        setLoading(false);
+        return;
+      }
+      const idToken = response.data.idToken;
+      if (!idToken) throw new Error('No ID token returned from Google');
+      
+      const googleCredential = GoogleAuthProvider.credential(idToken);
+      const userCredential = await signInWithCredential(getAuth(), googleCredential);
+      const firebaseIdToken = await userCredential.user.getIdToken();
+      
+      const data = await TraceApi.googleLogin(firebaseIdToken);
+      
+      setLoading(false);
+      setAuth(data.accessToken, data.user);
+      
+      if (onLoginSuccess) {
+        onLoginSuccess(data.accessToken);
+      }
+    } catch (e: any) {
+      setLoading(false);
+      setError(`Google sign-in failed. ${e.message}`);
     }
   };
 
@@ -93,6 +133,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
             ) : (
               <Text style={styles.buttonText}>Sign In</Text>
             )}
+          </TouchableOpacity>
+
+          <View style={styles.dividerContainer}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.divider} />
+          </View>
+
+          <TouchableOpacity 
+            style={styles.googleButton}
+            onPress={handleGoogleLogin}
+            disabled={loading}
+          >
+            <Text style={styles.googleIcon}>G</Text>
+            <Text style={styles.googleButtonText}>Sign in with Google</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -195,5 +250,43 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     fontSize: 14,
     fontWeight: '500',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: theme.spacing.xl,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: theme.colors.border,
+  },
+  dividerText: {
+    marginHorizontal: theme.spacing.md,
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#DADCE0',
+    borderRadius: 8,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  googleIcon: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#4285F4',
+    marginRight: 12,
+  },
+  googleButtonText: {
+    color: '#3C4043',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

@@ -1,19 +1,22 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import { theme } from '../theme';
+import { useAuthStore } from '../store/authStore';
 
 interface HomeScreenProps {
   navigation: any;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
+  const user = useAuthStore(state => state.user);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.header}>
           <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
             <View>
-              <Text style={styles.title}>Trace</Text>
+              <Text style={styles.title}>Hi, {user?.name?.split(' ')[0] || 'Citizen'}</Text>
               <Text style={styles.subtitle}>Help improve your community</Text>
             </View>
             <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.profileButton}>

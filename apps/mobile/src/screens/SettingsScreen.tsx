@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Switch, SafeAreaView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Switch, SafeAreaView, TouchableOpacity, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { theme } from '../theme';
 
 interface SettingsScreenProps {
@@ -12,6 +12,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
   const [bearerConfigured, setBearerConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
+  
+  // New Settings States
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(true);
 
   useEffect(() => {
     setTimeout(() => {
@@ -30,6 +34,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
     }, 500);
   };
 
+  const handleAction = (actionName: string) => {
+    Alert.alert(actionName, 'This feature will be available soon.');
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -44,7 +52,45 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
           <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
       ) : (
-        <View style={styles.container}>
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+          
+          {/* App Preferences Card */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>🎨 App Preferences</Text>
+            </View>
+
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleTextContainer}>
+                <Text style={styles.toggleTitle}>Dark Theme</Text>
+                <Text style={styles.toggleSubtitle}>
+                  {isDarkMode ? 'Dark mode is ON' : 'Light mode is ON'}
+                </Text>
+              </View>
+              <Switch
+                value={isDarkMode}
+                onValueChange={setIsDarkMode}
+                trackColor={{ false: '#CBD5E1', true: theme.colors.primary }}
+                thumbColor={'#FFFFFF'}
+              />
+            </View>
+
+            <View style={[styles.divider, { marginVertical: 4 }]} />
+
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleTextContainer}>
+                <Text style={styles.toggleTitle}>Push Notifications</Text>
+                <Text style={styles.toggleSubtitle}>Receive alerts for new reports</Text>
+              </View>
+              <Switch
+                value={pushEnabled}
+                onValueChange={setPushEnabled}
+                trackColor={{ false: '#CBD5E1', true: theme.colors.primary }}
+                thumbColor={'#FFFFFF'}
+              />
+            </View>
+          </View>
+
           {/* X Integration Card */}
           <View style={styles.card}>
             <View style={styles.cardHeader}>
@@ -103,7 +149,38 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
               </View>
             </View>
           </View>
-        </View>
+
+          {/* About Section */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>ℹ️ About & Support</Text>
+            
+            <TouchableOpacity style={styles.actionRow} onPress={() => handleAction('Privacy Policy')}>
+              <Text style={styles.actionText}>Privacy Policy</Text>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            <TouchableOpacity style={styles.actionRow} onPress={() => handleAction('Terms of Service')}>
+              <Text style={styles.actionText}>Terms of Service</Text>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            <TouchableOpacity style={styles.actionRow} onPress={() => handleAction('Contact Support')}>
+              <Text style={styles.actionText}>Contact Support</Text>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+
+            <View style={styles.versionContainer}>
+              <Text style={styles.versionText}>Trace App Version 1.0.0</Text>
+            </View>
+          </View>
+          
+          {/* Bottom Padding */}
+          <View style={{ height: 40 }} />
+        </ScrollView>
       )}
     </SafeAreaView>
   );
@@ -163,6 +240,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: theme.colors.text,
+    marginBottom: 8,
   },
   badge: {
     paddingHorizontal: 10,
@@ -181,15 +259,14 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: theme.colors.border,
-    marginBottom: theme.spacing.md,
+    marginVertical: theme.spacing.sm,
   },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
-    padding: theme.spacing.md,
-    borderRadius: 12,
+    backgroundColor: 'transparent',
+    paddingVertical: theme.spacing.sm,
   },
   toggleTextContainer: {
     flex: 1,
@@ -203,6 +280,7 @@ const styles = StyleSheet.create({
   toggleSubtitle: {
     fontSize: 12,
     color: theme.colors.textSecondary,
+    marginTop: 2,
   },
   statusRow: {
     flexDirection: 'row',
@@ -224,6 +302,30 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
   statusSubtitle: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  actionText: {
+    fontSize: 15,
+    color: theme.colors.text,
+    fontWeight: '500',
+  },
+  chevron: {
+    fontSize: 20,
+    color: theme.colors.textSecondary,
+  },
+  versionContainer: {
+    alignItems: 'center',
+    marginTop: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+  },
+  versionText: {
     fontSize: 12,
     color: theme.colors.textSecondary,
   },

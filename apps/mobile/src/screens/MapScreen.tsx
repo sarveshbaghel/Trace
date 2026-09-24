@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView } from 'react-native';
-import MapView, { Marker, Callout } from 'react-native-maps';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView, Platform, PermissionsAndroid } from 'react-native';
+import Geolocation from 'react-native-geolocation-service';
+import MapView, { Marker, Callout, UrlTile } from 'react-native-maps';
 import { TraceApi } from '../api/TraceApi';
 import { theme } from '../theme';
+import { OLA_MAPS_API_KEY } from '../config/env';
 
 interface MapScreenProps {
   navigation: any;
@@ -12,10 +14,52 @@ export const MapScreen: React.FC<MapScreenProps> = ({ navigation }) => {
   const [complaints, setComplaints] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [mapError, setMapError] = useState(false);
+  const [currentRegion, setCurrentRegion] = useState({
+    latitude: 26.2183,
+    longitude: 78.1828,
+    latitudeDelta: 0.05,
+    longitudeDelta: 0.05,
+  });
 
   useEffect(() => {
     fetchComplaints();
+    requestAndFetchLocation();
   }, []);
+
+  const requestAndFetchLocation = async () => {
+    let hasPermission = true;
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+        ]);
+        hasPermission =
+          granted[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] ===
+            PermissionsAndroid.RESULTS.GRANTED ||
+          granted[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] ===
+            PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        hasPermission = false;
+      }
+    }
+
+    if (hasPermission) {
+      Geolocation.getCurrentPosition(
+        position => {
+          setCurrentRegion({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            latitudeDelta: 0.02,
+            longitudeDelta: 0.02,
+          });
+        },
+        error => console.warn('Location error:', error),
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
+      );
+    }
+  };
 
   const fetchComplaints = async () => {
     try {
@@ -37,14 +81,6 @@ export const MapScreen: React.FC<MapScreenProps> = ({ navigation }) => {
       case 'water leakage': return '💧';
       default: return '📍';
     }
-  };
-
-  // Center on Gwalior by default
-  const initialRegion = {
-    latitude: 26.2183,
-    longitude: 78.1828,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
   };
 
   if (mapError) {
@@ -83,9 +119,18 @@ export const MapScreen: React.FC<MapScreenProps> = ({ navigation }) => {
         ) : (
           <MapView
             style={styles.map}
-            initialRegion={initialRegion}
+            region={currentRegion}
+            showsUserLocation={true}
+            showsMyLocationButton={true}
+            mapType="none" // Use "none" so default Google/Apple map tiles don't load underneath Ola Maps
             onError={() => setMapError(true)}
           >
+            {/* Ola Maps Raster Tiles */}
+            <UrlTile
+              urlTemplate={`https://api.olamaps.io/tiles/vector/v1/styles/default-light/rendered/{z}/{x}/{y}.png?api_key=${OLA_MAPS_API_KEY}`}
+              maximumZ={19}
+              flipY={false}
+            />
             {complaints.map((complaint) => {
               // Ensure valid coordinates
               if (typeof complaint.latitude !== 'number' || typeof complaint.longitude !== 'number') return null;

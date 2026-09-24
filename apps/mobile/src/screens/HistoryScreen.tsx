@@ -1,39 +1,57 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Image, SafeAreaView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Image, SafeAreaView, TouchableOpacity, RefreshControl, LayoutAnimation, UIManager, Platform } from 'react-native';
 import { theme } from '../theme';
+import { TraceApi } from '../api/TraceApi';
+import { useAuthStore } from '../store/authStore';
 
 interface HistoryScreenProps {
   navigation: any;
 }
 
 export const HistoryScreen: React.FC<HistoryScreenProps> = ({ navigation }) => {
+  const token = useAuthStore(state => state.token);
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Mock fetch
-    setTimeout(() => {
-      setReports([
-        {
-          id: '1',
-          issueType: 'Pothole',
-          status: 'pending',
-          description: 'Large pothole on main street causing traffic slowdowns.',
-          address: '123 Main St',
-          createdAt: '2026-09-08T10:00:00Z',
-        },
-        {
-          id: '2',
-          issueType: 'Garbage',
-          status: 'resolved',
-          description: 'Illegal dumping in the alleyway.',
-          address: '456 Side St',
-          createdAt: '2026-09-07T14:30:00Z',
-        }
-      ]);
-      setLoading(false);
-    }, 1000);
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
   }, []);
+
+  const fetchReports = useCallback(async () => {
+    if (!token) return;
+    try {
+      const data = await TraceApi.getReports(token);
+      setReports(data || []);
+    } catch (err) {
+      console.error('Failed to load reports', err);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const load = async () => {
+      setLoading(true);
+      await fetchReports();
+      if (isMounted) setLoading(false);
+    };
+    load();
+    return () => { isMounted = false; };
+  }, [fetchReports]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchReports();
+    setRefreshing(false);
+  }, [fetchReports]);
+
+  const toggleExpand = (id: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedId(expandedId === id ? null : id);
+  };
 
   const renderItem = ({ item }: { item: any }) => {
     const statusColor = item.status === 'pending' ? '#F59E0B' : 
@@ -53,25 +71,42 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({ navigation }) => {
       }
     };
 
+    const isExpanded = item.id === expandedId;
+
     return (
-      <View style={styles.card}>
-        {item.imageUrl && (
-          <Image source={{ uri: item.imageUrl }} style={styles.thumbnail} />
-        )}
+      <TouchableOpacity style={styles.card} onPress={() => toggleExpand(item.id)} activeOpacity={0.8}>
+        {!isExpanded && item.image_url ? (
+          <Image source={{ uri: item.image_url }} style={styles.thumbnail} />
+        ) : null}
         <View style={styles.cardContent}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>{getEmoji(item.issueType)} {item.issueType}</Text>
+            <Text style={styles.cardTitle}>{getEmoji(item.category)} {item.category}</Text>
             <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
               <Text style={[styles.statusText, { color: statusColor }]}>
                 {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
               </Text>
             </View>
           </View>
-          <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
-          <Text style={styles.address}>📍 {item.address || `${item.latitude}, ${item.longitude}`}</Text>
-          <Text style={styles.date}>{item.createdAt.substring(0, 10)}</Text>
+          
+          <Text style={styles.description} numberOfLines={isExpanded ? undefined : 2}>
+            {item.description}
+          </Text>
+
+          {isExpanded && item.image_url ? (
+            <Image source={{ uri: item.image_url }} style={styles.fullImage} />
+          ) : null}
+
+          <View style={styles.detailsRow}>
+            <Text style={styles.address}>📍 {item.address || `${item.latitude}, ${item.longitude}`}</Text>
+          </View>
+          
+          <View style={styles.dateRow}>
+            <Text style={styles.date}>
+              {new Date(item.created_at).toLocaleDateString()} {isExpanded ? new Date(item.created_at).toLocaleTimeString() : ''}
+            </Text>
+          </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -100,6 +135,13 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({ navigation }) => {
           renderItem={renderItem}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[theme.colors.primary]}
+            />
+          }
         />
       )}
     </SafeAreaView>
@@ -207,5 +249,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: theme.colors.textSecondary,
     opacity: 0.7,
+  },
+  fullImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginVertical: 12,
+    resizeMode: 'cover',
+  },
+  detailsRow: {
+    marginTop: 8,
+  },
+  dateRow: {
+    marginTop: 4,
   },
 });

@@ -6,6 +6,8 @@ buildscript {
         targetSdkVersion = 36
         ndkVersion = "27.1.12297006"
         kotlinVersion = "2.2.0"
+        playServicesLocationVersion = "21.3.0"
+        playServicesMapsVersion = "19.0.0"
     }
     repositories {
         google()
@@ -20,3 +22,13 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+allprojects {
+    configurations.all {
+        resolutionStrategy {
+            force "com.google.android.gms:play-services-location:21.3.0"
+            force "com.google.android.gms:play-services-maps:19.0.0"
+            force "com.google.android.gms:play-services-base:18.5.0"
+        }
+    }
+}

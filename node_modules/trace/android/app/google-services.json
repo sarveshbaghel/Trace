@@ -12,7 +12,12 @@
           "package_name": "com.traceapp"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "662612653819-v8mu0tkknv7vqofekhmulljere845tgf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAy_KSr6UrXGN2N8l4JqjoFLpIJgaSrHuI"
@@ -20,7 +25,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "662612653819-v8mu0tkknv7vqofekhmulljere845tgf.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
