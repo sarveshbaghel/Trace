@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 
@@ -20,12 +21,17 @@ async function bootstrap() {
 
   // CORS Configuration
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || 'http://localhost:3000',
+    origin: process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(',')
+      : true,
     credentials: true,
   });
 
+  // Global Validation Pipe
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+
   const port = process.env.PORT || 4000;
   await app.listen(port);
-  console.log(`Backend server running securely on port ${port}`);
+  console.log(`TRACE API is running securely on: http://localhost:${port}`);
 }
 bootstrap();
