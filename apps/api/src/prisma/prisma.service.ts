@@ -1,4 +1,4 @@
-﻿import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
@@ -19,7 +19,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit() {
-    await this.$connect();
+    try {
+      await this.$connect();
+      console.log('✅ Connected to MongoDB via Prisma');
+    } catch (err: any) {
+      console.warn('⚠️ MongoDB connection deferred / failed on startup:', err.message || err);
+      console.warn('The API server continues running.');
+    }
   }
 
   async onModuleDestroy() {

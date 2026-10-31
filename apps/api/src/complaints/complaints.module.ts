@@ -9,5 +9,6 @@ import { FirebaseModule } from '../common/firebase/firebase.module';
   imports: [PrismaModule, TwitterModule, FirebaseModule],
   controllers: [ComplaintsController],
   providers: [ComplaintsService],
+  exports: [ComplaintsService],
 })
 export class ComplaintsModule {}

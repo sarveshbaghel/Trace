@@ -5,14 +5,26 @@ import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 
+import * as express from 'express';
+import * as path from 'path';
+import * as fs from 'fs';
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Helmet Security Headers (CSP, Frameguard DENY, nosniff, HSTS)
+  // Ensure uploads directory exists and serve it statically
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  app.use('/uploads', express.static(uploadsDir));
+
+  // Helmet Security Headers (allow cross-origin images for mobile/admin)
   app.use(
     helmet({
       frameguard: { action: 'deny' },
-      contentSecurityPolicy: true,
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
 

@@ -12,6 +12,7 @@ import {
   Platform,
   PermissionsAndroid,
   Modal,
+  Alert,
 } from 'react-native';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import Geolocation from 'react-native-geolocation-service';
@@ -117,7 +118,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
         },
       );
       if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-        alert('Camera permission denied');
+        Alert.alert('Camera permission denied');
         return;
       }
     }
@@ -171,8 +172,15 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
     if (hasPermission) {
       Geolocation.getCurrentPosition(
         async position => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
+          let lat = position.coords.latitude;
+          let lng = position.coords.longitude;
+
+          // Emulator mock location override (if the user hasn't changed it from the default Googleplex)
+          if (Math.abs(lat - 37.422) < 0.1 && Math.abs(lng - -122.084) < 0.1) {
+            lat = 26.2183;
+            lng = 78.1828;
+          }
+
           setLatitude(lat);
           setLongitude(lng);
           const addr = await reverseGeocode(lat, lng);
@@ -182,7 +190,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
         error => {
           console.log(error.code, error.message);
           setLocationLoading(false);
-          alert(
+          Alert.alert(
             'Failed to detect location. Ensure location is enabled in device settings.',
           );
         },
@@ -190,7 +198,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
       );
     } else {
       setLocationLoading(false);
-      alert('Location permission denied');
+      Alert.alert('Location permission denied');
     }
   };
 
@@ -240,11 +248,15 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
       const response = await TraceApi.createReport(token, formData);
 
       setLoading(false);
-      // Navigate to summary screen passing the newly created report
-      navigation.replace('ReportSummary', { report: response });
+      // Navigate to summary screen passing the newly created report with clicked imageUri
+      const reportForSummary = {
+        ...response,
+        image_url: imageUri || response?.image_url,
+      };
+      navigation.replace('ReportSummary', { report: reportForSummary });
     } catch (e: any) {
       setLoading(false);
-      alert(e.message || 'Error submitting report');
+      Alert.alert(e.message || 'Error submitting report');
     }
   };
 
@@ -469,7 +481,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
               <MapErrorBoundary fallback={mapFallback}>
                 <MapViewComponent
                   style={styles.modalMap}
-                  mapType="none"
+                  mapType="standard"
                   initialRegion={{
                     latitude: tempLat,
                     longitude: tempLng,
@@ -480,13 +492,6 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
                     setTempLat(region.latitude);
                     setTempLng(region.longitude);
                   }}>
-                  {UrlTileComponent && (
-                    <UrlTileComponent
-                      urlTemplate={`https://api.olamaps.io/tiles/vector/v1/styles/default-light/rendered/{z}/{x}/{y}.png?api_key=${OLA_MAPS_API_KEY}`}
-                      maximumZ={19}
-                      flipY={false}
-                    />
-                  )}
                   {MarkerComponent && (
                     <MarkerComponent
                       coordinate={{ latitude: tempLat, longitude: tempLng }}

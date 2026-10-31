@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, SafeAreaView, TouchableOpacity, ScrollView, Linking } from 'react-native';
 import { theme } from '../theme';
+import { getFullImageUrl } from '../api/TraceApi';
 
 interface ReportSummaryScreenProps {
   route: any;
@@ -12,7 +13,7 @@ export const ReportSummaryScreen: React.FC<ReportSummaryScreenProps> = ({ route,
 
   const handlePostOnX = () => {
     const text = `I just reported a ${report.category} at ${report.address || 'my location'} using Trace App!\n\n${report.description ? report.description + '\n' : ''}`;
-    const urlParam = report.image_url ? `&url=${encodeURIComponent(report.image_url)}` : '';
+    const urlParam = report.image_url && report.image_url.startsWith('http') ? `&url=${encodeURIComponent(report.image_url)}` : '';
     const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}${urlParam}`;
     Linking.openURL(twitterUrl).catch(err => console.error('Error opening X:', err));
   };
@@ -38,7 +39,7 @@ export const ReportSummaryScreen: React.FC<ReportSummaryScreenProps> = ({ route,
 
         <View style={styles.card}>
           {report.image_url ? (
-            <Image source={{ uri: report.image_url }} style={styles.image} />
+            <Image source={{ uri: getFullImageUrl(report.image_url) }} style={styles.image} />
           ) : null}
           
           <View style={styles.cardContent}>

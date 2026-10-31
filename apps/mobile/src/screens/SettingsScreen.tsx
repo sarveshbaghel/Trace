@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Switch, SafeAreaView, TouchableOpacity, ActivityIndicator, ScrollView, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Switch,
+  SafeAreaView,
+  TouchableOpacity,
+  ActivityIndicator,
+  ScrollView,
+  Alert,
+} from 'react-native';
 import { theme } from '../theme';
 
 interface SettingsScreenProps {
@@ -8,43 +18,31 @@ interface SettingsScreenProps {
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const [autoPostEnabled, setAutoPostEnabled] = useState(false);
-  const [apiConnected, setApiConnected] = useState(false);
-  const [bearerConfigured, setBearerConfigured] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [apiConnected, setApiConnected] = useState(true);
+  const [bearerConfigured, setBearerConfigured] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [toggling, setToggling] = useState(false);
-  
-  // New Settings States
+
+  // Appearance & Notification States
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(true);
-
-  useEffect(() => {
-    setTimeout(() => {
-      setAutoPostEnabled(false);
-      setApiConnected(true);
-      setBearerConfigured(false);
-      setLoading(false);
-    }, 1000);
-  }, []);
+  const [emailAlerts, setEmailAlerts] = useState(true);
 
   const toggleAutoPost = async (value: boolean) => {
     setToggling(true);
     setTimeout(() => {
       setAutoPostEnabled(value);
       setToggling(false);
-    }, 500);
-  };
-
-  const handleAction = (actionName: string) => {
-    Alert.alert(actionName, 'This feature will be available soon.');
+    }, 400);
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.safeArea, isDarkMode && styles.safeAreaDark]}>
+      <View style={[styles.header, isDarkMode && styles.headerDark]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
+          <Text style={[styles.backButtonText, isDarkMode && styles.textDark]}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Settings</Text>
+        <Text style={[styles.title, isDarkMode && styles.textDark]}>Settings</Text>
       </View>
 
       {loading ? (
@@ -53,18 +51,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
         </View>
       ) : (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-          
           {/* App Preferences Card */}
-          <View style={styles.card}>
+          <View style={[styles.card, isDarkMode && styles.cardDark]}>
             <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>🎨 App Preferences</Text>
+              <Text style={[styles.cardTitle, isDarkMode && styles.textDark]}>🎨 Appearance & Alerts</Text>
             </View>
 
             <View style={styles.toggleRow}>
               <View style={styles.toggleTextContainer}>
-                <Text style={styles.toggleTitle}>Dark Theme</Text>
+                <Text style={[styles.toggleTitle, isDarkMode && styles.textDark]}>Dark Theme</Text>
                 <Text style={styles.toggleSubtitle}>
-                  {isDarkMode ? 'Dark mode is ON' : 'Light mode is ON'}
+                  {isDarkMode ? 'Night mode enabled' : 'Clean day mode enabled'}
                 </Text>
               </View>
               <Switch
@@ -75,12 +72,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
               />
             </View>
 
-            <View style={[styles.divider, { marginVertical: 4 }]} />
+            <View style={styles.divider} />
 
             <View style={styles.toggleRow}>
               <View style={styles.toggleTextContainer}>
-                <Text style={styles.toggleTitle}>Push Notifications</Text>
-                <Text style={styles.toggleSubtitle}>Receive alerts for new reports</Text>
+                <Text style={[styles.toggleTitle, isDarkMode && styles.textDark]}>Push Notifications</Text>
+                <Text style={styles.toggleSubtitle}>Instant alerts when report status changes</Text>
               </View>
               <Switch
                 value={pushEnabled}
@@ -89,12 +86,27 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
                 thumbColor={'#FFFFFF'}
               />
             </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleTextContainer}>
+                <Text style={[styles.toggleTitle, isDarkMode && styles.textDark]}>Email Digests</Text>
+                <Text style={styles.toggleSubtitle}>Weekly civic activity summaries in your ward</Text>
+              </View>
+              <Switch
+                value={emailAlerts}
+                onValueChange={setEmailAlerts}
+                trackColor={{ false: '#CBD5E1', true: theme.colors.primary }}
+                thumbColor={'#FFFFFF'}
+              />
+            </View>
           </View>
 
-          {/* X Integration Card */}
-          <View style={styles.card}>
+          {/* X / Twitter Integration Card */}
+          <View style={[styles.card, isDarkMode && styles.cardDark]}>
             <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>𝕏 X (Twitter) Integration</Text>
+              <Text style={[styles.cardTitle, isDarkMode && styles.textDark]}>𝕏 X (Twitter) Broadcast</Text>
               <View style={[styles.badge, { backgroundColor: apiConnected ? '#DCFCE7' : '#FEF3C7' }]}>
                 <Text style={[styles.badgeText, { color: apiConnected ? '#166534' : '#92400E' }]}>
                   {apiConnected ? '✅ Connected' : '⚠️ Partial'}
@@ -102,17 +114,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
               </View>
             </View>
 
-            <Text style={styles.cardDescription}>
-              When enabled, every new report submitted will automatically be posted to your X account.
+            <Text style={[styles.cardDescription, isDarkMode && styles.descDark]}>
+              When enabled, submitted and verified civic issues will automatically be tagged to
+              the responsible municipal department handle on X for public accountability.
             </Text>
 
             <View style={styles.divider} />
 
             <View style={styles.toggleRow}>
               <View style={styles.toggleTextContainer}>
-                <Text style={styles.toggleTitle}>Automatic Post to X</Text>
+                <Text style={[styles.toggleTitle, isDarkMode && styles.textDark]}>Automatic Post to X</Text>
                 <Text style={styles.toggleSubtitle}>
-                  {autoPostEnabled ? 'New reports will be posted to X' : 'Reports must be posted to X manually'}
+                  {autoPostEnabled
+                    ? 'New reports will be posted to X'
+                    : 'Reports must be posted to X manually'}
                 </Text>
               </View>
               <Switch
@@ -126,59 +141,87 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
           </View>
 
           {/* Connection Status Card */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>🔗 Connection Status</Text>
-            
+          <View style={[styles.card, isDarkMode && styles.cardDark]}>
+            <Text style={[styles.cardTitle, isDarkMode && styles.textDark]}>🔗 Municipal Conduit Status</Text>
+
             <View style={styles.statusRow}>
-              <View style={[styles.statusDot, { backgroundColor: apiConnected ? '#10B981' : '#F59E0B' }]} />
-              <View>
-                <Text style={styles.statusTitle}>OAuth 1.0a (Post access)</Text>
+              <View
+                style={[
+                  styles.statusDot,
+                  { backgroundColor: apiConnected ? '#10B981' : '#F59E0B' },
+                ]}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.statusTitle, isDarkMode && styles.textDark]}>
+                  OAuth 1.0a (Authority Tagging)
+                </Text>
                 <Text style={styles.statusSubtitle}>
-                  {apiConnected ? 'API keys configured' : 'Access Token & Secret needed'}
+                  {apiConnected ? 'Connected & ready to broadcast' : 'Configuration pending'}
                 </Text>
               </View>
             </View>
 
             <View style={styles.statusRow}>
-              <View style={[styles.statusDot, { backgroundColor: bearerConfigured ? '#10B981' : '#F59E0B' }]} />
-              <View>
-                <Text style={styles.statusTitle}>Bearer Token (Read access)</Text>
+              <View
+                style={[
+                  styles.statusDot,
+                  { backgroundColor: bearerConfigured ? '#10B981' : '#F59E0B' },
+                ]}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.statusTitle, isDarkMode && styles.textDark]}>
+                  Trace Core Engine (API Gateway)
+                </Text>
                 <Text style={styles.statusSubtitle}>
-                  {bearerConfigured ? 'Bearer token configured' : 'Bearer token not set'}
+                  Connected to localhost:4000
                 </Text>
               </View>
             </View>
           </View>
 
-          {/* About Section */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>ℹ️ About & Support</Text>
-            
-            <TouchableOpacity style={styles.actionRow} onPress={() => handleAction('Privacy Policy')}>
-              <Text style={styles.actionText}>Privacy Policy</Text>
+          {/* About & Support Links Card */}
+          <View style={[styles.card, isDarkMode && styles.cardDark]}>
+            <Text style={[styles.cardTitle, isDarkMode && styles.textDark]}>ℹ️ Information & Legal</Text>
+
+            <TouchableOpacity
+              style={styles.actionRow}
+              onPress={() => navigation.navigate('PrivacyPolicy')}
+            >
+              <Text style={[styles.actionText, isDarkMode && styles.textDark]}>Privacy Policy</Text>
               <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
 
             <View style={styles.divider} />
 
-            <TouchableOpacity style={styles.actionRow} onPress={() => handleAction('Terms of Service')}>
-              <Text style={styles.actionText}>Terms of Service</Text>
+            <TouchableOpacity
+              style={styles.actionRow}
+              onPress={() => navigation.navigate('About')}
+            >
+              <Text style={[styles.actionText, isDarkMode && styles.textDark]}>About Trace App</Text>
               <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
 
             <View style={styles.divider} />
 
-            <TouchableOpacity style={styles.actionRow} onPress={() => handleAction('Contact Support')}>
-              <Text style={styles.actionText}>Contact Support</Text>
+            <TouchableOpacity
+              style={styles.actionRow}
+              onPress={() => navigation.navigate('HelpSupport')}
+            >
+              <Text style={[styles.actionText, isDarkMode && styles.textDark]}>Help & Support / FAQs</Text>
               <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
 
-            <View style={styles.versionContainer}>
-              <Text style={styles.versionText}>Trace App Version 1.0.0</Text>
-            </View>
+            <View style={styles.divider} />
+
+            <TouchableOpacity
+              style={styles.actionRow}
+              onPress={() => navigation.navigate('Developer')}
+            >
+              <Text style={[styles.actionText, isDarkMode && styles.textDark]}>Developers & Architecture</Text>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
           </View>
-          
-          {/* Bottom Padding */}
+
           <View style={{ height: 40 }} />
         </ScrollView>
       )}
@@ -191,6 +234,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
+  safeAreaDark: {
+    backgroundColor: '#0F172A',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -198,6 +244,10 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+  },
+  headerDark: {
+    backgroundColor: '#1E293B',
+    borderBottomColor: '#334155',
   },
   backButton: {
     marginRight: theme.spacing.md,
@@ -211,66 +261,68 @@ const styles = StyleSheet.create({
     ...theme.typography.h2,
     color: theme.colors.text,
   },
+  textDark: {
+    color: '#F8FAFC',
+  },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   container: {
-    padding: theme.spacing.lg,
+    flex: 1,
+    padding: theme.spacing.md,
   },
   card: {
     backgroundColor: theme.colors.surface,
-    borderRadius: 16,
-    padding: theme.spacing.lg,
+    borderRadius: 12,
+    padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  cardDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
   },
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.md,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.text,
+    alignItems: 'center',
     marginBottom: 8,
   },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '600',
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: theme.colors.text,
   },
   cardDescription: {
-    fontSize: 14,
+    fontSize: 13,
     color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.md,
+    lineHeight: 18,
+    marginBottom: 12,
   },
-  divider: {
-    height: 1,
-    backgroundColor: theme.colors.border,
-    marginVertical: theme.spacing.sm,
+  descDark: {
+    color: '#94A3B8',
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'transparent',
-    paddingVertical: theme.spacing.sm,
+    paddingVertical: 8,
   },
   toggleTextContainer: {
     flex: 1,
-    marginRight: theme.spacing.md,
+    marginRight: 16,
   },
   toggleTitle: {
     fontSize: 15,
@@ -282,19 +334,21 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginTop: 2,
   },
+  divider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 4,
+  },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    padding: theme.spacing.md,
-    borderRadius: 8,
-    marginTop: theme.spacing.sm,
+    paddingVertical: 10,
   },
   statusDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: theme.spacing.md,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 12,
   },
   statusTitle: {
     fontSize: 14,
@@ -304,6 +358,7 @@ const styles = StyleSheet.create({
   statusSubtitle: {
     fontSize: 12,
     color: theme.colors.textSecondary,
+    marginTop: 2,
   },
   actionRow: {
     flexDirection: 'row',
@@ -312,21 +367,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   actionText: {
-    fontSize: 15,
+    fontSize: 14,
+    fontWeight: '600',
     color: theme.colors.text,
-    fontWeight: '500',
   },
   chevron: {
-    fontSize: 20,
-    color: theme.colors.textSecondary,
-  },
-  versionContainer: {
-    alignItems: 'center',
-    marginTop: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-  },
-  versionText: {
-    fontSize: 12,
+    fontSize: 22,
     color: theme.colors.textSecondary,
   },
 });

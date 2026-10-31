@@ -6,6 +6,7 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint .",
+    "dev": "react-native start",
     "start": "react-native start",
     "test": "jest"
   },
@@ -27,6 +28,7 @@
     "react-native-safe-area-context": "^5.5.2",
     "react-native-screens": "^4.27.0",
     "react-native-vision-camera": "^5.2.3",
+    "react-native-webview": "^14.0.1",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

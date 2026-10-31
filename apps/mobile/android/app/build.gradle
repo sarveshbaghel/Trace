@@ -121,6 +121,9 @@ dependencies {
         implementation jscFlavor
     }
 
+    // Google Maps SDK — required by react-native-maps
+    implementation 'com.google.android.gms:play-services-maps:19.0.0'
+
     // Firebase dependencies
     implementation platform('com.google.firebase:firebase-bom:33.1.2')
     implementation 'com.google.firebase:firebase-analytics'

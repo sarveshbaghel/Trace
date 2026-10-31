@@ -11,6 +11,10 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { MapScreen } from '../screens/MapScreen';
 import { ReportSummaryScreen } from '../screens/ReportSummaryScreen';
+import { AboutScreen } from '../screens/AboutScreen';
+import { HelpSupportScreen } from '../screens/HelpSupportScreen';
+import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
+import { DeveloperScreen } from '../screens/DeveloperScreen';
 
 import { useAuthStore } from '../store/authStore';
 
@@ -36,6 +40,10 @@ export const AppNavigator = () => {
             <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="Map" component={MapScreen} />
             <Stack.Screen name="ReportSummary" component={ReportSummaryScreen} />
+            <Stack.Screen name="About" component={AboutScreen} />
+            <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
+            <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+            <Stack.Screen name="Developer" component={DeveloperScreen} />
           </>
         ) : (
           // Unauthenticated Screens

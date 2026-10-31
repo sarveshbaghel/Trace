@@ -5,6 +5,20 @@ const BASE_URL = __DEV__
   ? (Platform.OS === 'android' ? 'http://10.0.2.2:4000/api/v1' : 'http://localhost:4000/api/v1')
   : 'https://trace-7h2o.onrender.com/api/v1';
 
+export const getFullImageUrl = (url?: string | null): string => {
+  if (!url) return '';
+  if (
+    url.startsWith('http://') ||
+    url.startsWith('https://') ||
+    url.startsWith('file://') ||
+    url.startsWith('content://')
+  ) {
+    return url;
+  }
+  const host = Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000';
+  return `${host}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 15000,

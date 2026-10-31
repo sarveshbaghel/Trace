@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Image, SafeAreaView, TouchableOpacity, RefreshControl, LayoutAnimation, UIManager, Platform } from 'react-native';
 import { theme } from '../theme';
-import { TraceApi } from '../api/TraceApi';
+import { TraceApi, getFullImageUrl } from '../api/TraceApi';
 import { useAuthStore } from '../store/authStore';
 
 interface HistoryScreenProps {
@@ -76,7 +76,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({ navigation }) => {
     return (
       <TouchableOpacity style={styles.card} onPress={() => toggleExpand(item.id)} activeOpacity={0.8}>
         {!isExpanded && item.image_url ? (
-          <Image source={{ uri: item.image_url }} style={styles.thumbnail} />
+          <Image source={{ uri: getFullImageUrl(item.image_url) }} style={styles.thumbnail} />
         ) : null}
         <View style={styles.cardContent}>
           <View style={styles.cardHeader}>
@@ -93,7 +93,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({ navigation }) => {
           </Text>
 
           {isExpanded && item.image_url ? (
-            <Image source={{ uri: item.image_url }} style={styles.fullImage} />
+            <Image source={{ uri: getFullImageUrl(item.image_url) }} style={styles.fullImage} />
           ) : null}
 
           <View style={styles.detailsRow}>

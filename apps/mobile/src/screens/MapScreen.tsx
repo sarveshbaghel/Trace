@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView, Platform, PermissionsAndroid } from 'react-native';
+import { WebView } from 'react-native-webview';
 import Geolocation from 'react-native-geolocation-service';
-import MapView, { Marker, Callout, UrlTile } from 'react-native-maps';
 import { TraceApi } from '../api/TraceApi';
 import { theme } from '../theme';
-import { OLA_MAPS_API_KEY } from '../config/env';
 
 interface MapScreenProps {
   navigation: any;
@@ -13,13 +12,9 @@ interface MapScreenProps {
 export const MapScreen: React.FC<MapScreenProps> = ({ navigation }) => {
   const [complaints, setComplaints] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [mapError, setMapError] = useState(false);
-  const [currentRegion, setCurrentRegion] = useState({
-    latitude: 26.2183,
-    longitude: 78.1828,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
-  });
+  const [userLat, setUserLat] = useState<number | null>(null);
+  const [userLng, setUserLng] = useState<number | null>(null);
+  const webViewRef = useRef<WebView>(null);
 
   useEffect(() => {
     fetchComplaints();
@@ -48,12 +43,8 @@ export const MapScreen: React.FC<MapScreenProps> = ({ navigation }) => {
     if (hasPermission) {
       Geolocation.getCurrentPosition(
         position => {
-          setCurrentRegion({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            latitudeDelta: 0.02,
-            longitudeDelta: 0.02,
-          });
+          setUserLat(position.coords.latitude);
+          setUserLng(position.coords.longitude);
         },
         error => console.warn('Location error:', error),
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
@@ -83,23 +74,122 @@ export const MapScreen: React.FC<MapScreenProps> = ({ navigation }) => {
     }
   };
 
-  if (mapError) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>←</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>Live Map</Text>
-        </View>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorIcon}>🗺️</Text>
-          <Text style={styles.errorText}>Map Unavailable</Text>
-          <Text style={styles.errorSubText}>Please ensure the Google Maps SDK is enabled and the API key is correct.</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const getStatusColor = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case 'SUBMITTED': return '#F59E0B';
+      case 'IN_PROGRESS': return '#3B82F6';
+      case 'RESOLVED': return '#10B981';
+      default: return '#6B7280';
+    }
+  };
+
+  // Center on user location, fallback to Gwalior
+  const centerLat = userLat ?? 26.2183;
+  const centerLng = userLng ?? 78.1828;
+  const zoom = userLat ? 14 : 12;
+
+  const markersJson = JSON.stringify(
+    complaints
+      .filter(c => typeof c.latitude === 'number' && typeof c.longitude === 'number')
+      .map(c => ({
+        lat: c.latitude,
+        lng: c.longitude,
+        category: c.category,
+        emoji: getCategoryEmoji(c.category),
+        status: c.status,
+        statusColor: getStatusColor(c.status),
+        address: c.address || '',
+      }))
+  );
+
+  const leafletHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; }
+    html, body, #map { width: 100%; height: 100%; }
+    .custom-marker {
+      background: white;
+      border: 2px solid #4F46E5;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .user-marker {
+      background: #4F46E5;
+      border: 3px solid white;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      box-shadow: 0 0 0 4px rgba(79,70,229,0.3), 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .popup-category { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+    .popup-status { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 10px; display: inline-block; color: white; margin-bottom: 4px; }
+    .popup-address { font-size: 12px; color: #6B7280; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    var map = L.map('map', {
+      zoomControl: false,
+      attributionControl: false
+    }).setView([${centerLat}, ${centerLng}], ${zoom});
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(map);
+
+    // Attribution in corner
+    L.control.attribution({ position: 'bottomright', prefix: false })
+      .addAttribution('© OpenStreetMap')
+      .addTo(map);
+
+    // Zoom control top-right
+    L.control.zoom({ position: 'topright' }).addTo(map);
+
+    // User location marker
+    ${userLat ? `
+    var userIcon = L.divIcon({
+      className: '',
+      html: '<div class="user-marker"></div>',
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+    });
+    L.marker([${userLat}, ${userLng}], { icon: userIcon, zIndexOffset: 1000 })
+      .addTo(map)
+      .bindPopup('<b>📍 Your Location</b>');
+    ` : ''}
+
+    // Complaint markers
+    var markers = ${markersJson};
+    markers.forEach(function(m) {
+      var icon = L.divIcon({
+        className: '',
+        html: '<div class="custom-marker">' + m.emoji + '</div>',
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+      });
+      L.marker([m.lat, m.lng], { icon: icon })
+        .addTo(map)
+        .bindPopup(
+          '<div class="popup-category">' + m.emoji + ' ' + m.category + '</div>' +
+          '<div class="popup-status" style="background:' + m.statusColor + '">' + m.status + '</div>' +
+          (m.address ? '<div class="popup-address">📍 ' + m.address + '</div>' : '')
+        );
+    });
+  </script>
+</body>
+</html>`;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -108,6 +198,8 @@ export const MapScreen: React.FC<MapScreenProps> = ({ navigation }) => {
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Live Map</Text>
+        <View style={{ flex: 1 }} />
+        <Text style={styles.countBadge}>{complaints.length} reports</Text>
       </View>
       
       <View style={styles.container}>
@@ -117,51 +209,39 @@ export const MapScreen: React.FC<MapScreenProps> = ({ navigation }) => {
             <Text style={styles.loadingText}>Loading reports...</Text>
           </View>
         ) : (
-          <MapView
+          <WebView
+            ref={webViewRef}
+            originWhitelist={['*']}
+            source={{ html: leafletHtml }}
             style={styles.map}
-            region={currentRegion}
-            showsUserLocation={true}
-            showsMyLocationButton={true}
-            mapType="none" // Use "none" so default Google/Apple map tiles don't load underneath Ola Maps
-            onError={() => setMapError(true)}
-          >
-            {/* Ola Maps Raster Tiles */}
-            <UrlTile
-              urlTemplate={`https://api.olamaps.io/tiles/vector/v1/styles/default-light/rendered/{z}/{x}/{y}.png?api_key=${OLA_MAPS_API_KEY}`}
-              maximumZ={19}
-              flipY={false}
-            />
-            {complaints.map((complaint) => {
-              // Ensure valid coordinates
-              if (typeof complaint.latitude !== 'number' || typeof complaint.longitude !== 'number') return null;
-              
-              return (
-                <Marker
-                  key={complaint.id}
-                  coordinate={{
-                    latitude: complaint.latitude,
-                    longitude: complaint.longitude,
-                  }}
-                >
-                  <View style={styles.markerContainer}>
-                    <Text style={styles.markerEmoji}>{getCategoryEmoji(complaint.category)}</Text>
-                  </View>
-                  <Callout>
-                    <View style={styles.calloutContainer}>
-                      <Text style={styles.calloutCategory}>{complaint.category}</Text>
-                      <Text style={styles.calloutStatus}>{complaint.status}</Text>
-                      {complaint.address && (
-                        <Text style={styles.calloutAddress} numberOfLines={2}>
-                          {complaint.address}
-                        </Text>
-                      )}
-                    </View>
-                  </Callout>
-                </Marker>
-              );
-            })}
-          </MapView>
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            scrollEnabled={false}
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+            showsHorizontalScrollIndicator={false}
+          />
         )}
+      </View>
+
+      {/* Legend overlay */}
+      <View style={styles.legend}>
+        <View style={styles.legendRow}>
+          <Text style={styles.legendDot}>🕳️</Text>
+          <Text style={styles.legendLabel}>Pothole</Text>
+        </View>
+        <View style={styles.legendRow}>
+          <Text style={styles.legendDot}>🗑️</Text>
+          <Text style={styles.legendLabel}>Garbage</Text>
+        </View>
+        <View style={styles.legendRow}>
+          <Text style={styles.legendDot}>💡</Text>
+          <Text style={styles.legendLabel}>Streetlight</Text>
+        </View>
+        <View style={styles.legendRow}>
+          <Text style={styles.legendDot}>💧</Text>
+          <Text style={styles.legendLabel}>Water</Text>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -192,11 +272,20 @@ const styles = StyleSheet.create({
     ...theme.typography.h2,
     color: theme.colors.text,
   },
+  countBadge: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    backgroundColor: theme.colors.background,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
   container: {
     flex: 1,
   },
   map: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -208,60 +297,33 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: 16,
   },
-  markerContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 5,
-    borderWidth: 2,
-    borderColor: theme.colors.primary,
+  legend: {
+    position: 'absolute',
+    bottom: 16,
+    left: 12,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    gap: 10,
+    elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
-  markerEmoji: {
-    fontSize: 18,
-  },
-  calloutContainer: {
-    width: 200,
-    padding: 10,
-  },
-  calloutCategory: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginBottom: 5,
-  },
-  calloutStatus: {
-    color: theme.colors.primary,
-    fontWeight: '500',
-    marginBottom: 5,
-    textTransform: 'capitalize',
-  },
-  calloutAddress: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  legendRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 40,
+    gap: 3,
   },
-  errorIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  errorText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: theme.colors.text,
-    marginBottom: 8,
-  },
-  errorSubText: {
+  legendDot: {
     fontSize: 14,
+  },
+  legendLabel: {
+    fontSize: 11,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
+    fontWeight: '500',
   },
 });
