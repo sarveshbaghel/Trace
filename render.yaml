@@ -4,32 +4,38 @@ services:
     name: trace-api
     plan: free
     env: node
-    buildCommand: npm install && npx prisma generate --schema=apps/api/prisma/schema.prisma && npx turbo run build --filter=backend
-    # Push database schema, then start NestJS production build
-    startCommand: cd apps/api && npx prisma db push --schema=prisma/schema.prisma --accept-data-loss && npm run start:prod
+    buildCommand: npm install && npx prisma generate --schema=apps/api/prisma/schema.prisma && npm run build:backend
+    # Start NestJS production build
+    startCommand: cd apps/api && (npx prisma db push --schema=prisma/schema.prisma --accept-data-loss || true) && npm run start:prod
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: trace-db
-          property: connectionString
+        sync: false
+      - key: JWT_SECRET
+        sync: false
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: 22.11.0
-      # These keys will need to be provided manually in the Render dashboard
+        value: 20.11.1
+      # Keys provided in the Render dashboard
       - key: X_API_KEY
         sync: false
       - key: X_API_SECRET
         sync: false
       - key: X_BEARER_TOKEN
         sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
 
   # Admin Web Dashboard
   - type: web
-    name: trace-web
+    name: trace-admin
     env: static
-    buildCommand: npm install && npx turbo run build --filter=web
-    staticPublishPath: apps/web/dist
+    buildCommand: npm install && npx turbo run build --filter=trace-admin
+    staticPublishPath: apps/admin/dist
     envVars:
       - key: VITE_API_URL
         fromService:
@@ -37,10 +43,4 @@ services:
           name: trace-api
           property: host
       - key: NODE_VERSION
-        value: 22.11.0
-
-databases:
-  - name: trace-db
-    databaseName: trace_db
-    user: trace_user
-    plan: free
+        value: 20.11.1
