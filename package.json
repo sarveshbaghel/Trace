@@ -1,6 +1,7 @@
 {
   "name": "trace-monorepo",
   "private": true,
+  "packageManager": "npm@10.2.4",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -11,6 +12,7 @@
   "scripts": {
     "prebuild": "node node_modules/prisma/build/index.js generate --schema=apps/api/prisma/schema.prisma",
     "build": "chmod -R +x node_modules/.bin && node node_modules/turbo/bin/turbo run build",
+    "build:backend": "chmod -R +x node_modules/.bin && node node_modules/turbo/bin/turbo run build --filter=backend",
     "dev": "npx turbo run dev",
     "lint": "npx turbo run lint",
     "test": "npx turbo run test"
