@@ -83,7 +83,7 @@ export const DeveloperScreen: React.FC<DeveloperScreenProps> = ({ navigation }) 
             </View>
             <View>
               <Text style={styles.memberName}>Sarvesh Baghel</Text>
-              <Text style={styles.memberRole}>Lead Developer & Architect</Text>
+              <Text style={styles.memberRole}>Developer & Architect</Text>
             </View>
           </View>
 
@@ -95,7 +95,7 @@ export const DeveloperScreen: React.FC<DeveloperScreenProps> = ({ navigation }) 
             </View>
             <View>
               <Text style={styles.memberName}>Aditi Pawayia</Text>
-              <Text style={styles.memberRole}>Developer</Text>
+              <Text style={styles.memberRole}>Developer & Architect</Text>
             </View>
           </View>
         </View>

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { ComplaintsService } from '../complaints/complaints.service';
+import { TruforService } from '../common/trufor/trufor.service';
 
 @Injectable()
 export class AdminService {
@@ -15,6 +16,7 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly complaintsService: ComplaintsService,
+    private readonly truforService: TruforService,
   ) {}
 
   // 1. Admin Authentication
@@ -429,5 +431,92 @@ export class AdminService {
   updateSettings(updates: Partial<typeof this.settings>) {
     this.settings = { ...this.settings, ...updates };
     return this.settings;
+  }
+
+  // 11. Run TruFor AI Verification Analysis
+  async analyzeComplaintWithTrufor(id: string) {
+    let complaint: any = null;
+    try {
+      complaint = await this.prisma.complaint.findUnique({
+        where: { id },
+        include: {
+          user: true,
+          ai_analysis: true,
+          status_history: true,
+          post: true,
+        },
+      });
+    } catch (err) {
+      // Prisma error fallback
+    }
+
+    if (!complaint) {
+      complaint = (await this.getComplaints()).find((c) => c.id === id);
+    }
+
+    if (!complaint) {
+      throw new NotFoundException(`Complaint with ID ${id} not found`);
+    }
+
+    const imageUrl = complaint.image_url;
+    if (!imageUrl) {
+      throw new NotFoundException(`Complaint ${id} does not have an evidence image to analyze`);
+    }
+
+    // Run TruFor AI / Forensic Analysis
+    const analysis = await this.truforService.analyzeImage(imageUrl);
+
+    // Save or update AiAnalysis record in Prisma if DB available
+    try {
+      const savedAi = await this.prisma.aiAnalysis.upsert({
+        where: { complaint_id: id },
+        update: {
+          authenticity_score: analysis.authenticity_score,
+          manipulation_score: analysis.manipulation_score,
+          ai_generated_probability: analysis.ai_generated_probability,
+          model_version: analysis.model_version,
+          heatmap_url: analysis.heatmap_url,
+          verdict: analysis.verdict,
+          analyzed_at: new Date(),
+        },
+        create: {
+          complaint_id: id,
+          authenticity_score: analysis.authenticity_score,
+          manipulation_score: analysis.manipulation_score,
+          ai_generated_probability: analysis.ai_generated_probability,
+          model_version: analysis.model_version,
+          heatmap_url: analysis.heatmap_url,
+          verdict: analysis.verdict,
+        },
+      });
+
+      // Refetch updated complaint
+      const refreshed = await this.getComplaintById(id);
+      return {
+        message: 'TruFor AI analysis completed successfully',
+        analysis: savedAi,
+        complaint: refreshed,
+      };
+    } catch (dbErr: any) {
+      console.warn('Failed to save AiAnalysis to DB, updating in-memory object:', dbErr?.message);
+    }
+
+    // Memory fallback
+    complaint.ai_analysis = {
+      authenticity_score: analysis.authenticity_score,
+      manipulation_score: analysis.manipulation_score,
+      ai_generated_probability: analysis.ai_generated_probability,
+      model_version: analysis.model_version,
+      heatmap_url: analysis.heatmap_url,
+      verdict: analysis.verdict,
+      analyzed_at: new Date().toISOString(),
+      details: analysis.details,
+    };
+
+    return {
+      message: 'TruFor AI analysis completed successfully (in-memory)',
+      analysis: complaint.ai_analysis,
+      complaint,
+    };
   }
 }

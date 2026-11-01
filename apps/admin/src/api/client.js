@@ -75,6 +75,11 @@ export const postToX = async (id) => {
   return data;
 };
 
+export const analyzeComplaintTrufor = async (id) => {
+  const { data } = await client.post(`/api/v1/admin/complaints/${id}/analyze-trufor`);
+  return data;
+};
+
 export const getMetrics = async () => {
   const { data } = await client.get('/api/v1/admin/metrics');
   return data;

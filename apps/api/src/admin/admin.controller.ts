@@ -77,6 +77,11 @@ export class AdminController {
     return this.adminService.postToX(id);
   }
 
+  @Post('complaints/:id/analyze-trufor')
+  analyzeTrufor(@Param('id') id: string) {
+    return this.adminService.analyzeComplaintWithTrufor(id);
+  }
+
   @Get('settings')
   getSettings() {
     return this.adminService.getSettings();

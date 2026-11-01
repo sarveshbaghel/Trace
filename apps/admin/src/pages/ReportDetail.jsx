@@ -7,6 +7,7 @@ import {
   resolveComplaint,
   declineComplaint,
   postToX,
+  analyzeComplaintTrufor,
   getFullImageUrl
 } from '../api/client.js';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
@@ -39,6 +40,10 @@ export default function ReportDetail() {
   const [actionLoading, setActionLoading] = useState('');
   const [message, setMessage] = useState(null);
 
+  // TruFor AI state
+  const [analyzingTrufor, setAnalyzingTrufor] = useState(false);
+  const [imageViewMode, setImageViewMode] = useState('original'); // 'original' | 'heatmap' | 'split'
+
   // Resolve workflow state
   const [resolveImage, setResolveImage] = useState(null);
   const [resolveImagePreview, setResolveImagePreview] = useState(null);
@@ -58,10 +63,44 @@ export default function ReportDetail() {
       const data = await getComplaint(id);
       setReport(data);
       setAdminNote(data.admin_note || '');
+      if (data.ai_analysis?.heatmap_url) {
+        setImageViewMode('heatmap');
+      }
     } catch (err) {
       console.error('Failed to fetch report detail:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRunTrufor = async () => {
+    setAnalyzingTrufor(true);
+    setMessage(null);
+    try {
+      const result = await analyzeComplaintTrufor(id);
+      const updatedReport = result.complaint || {
+        ...report,
+        ai_analysis: result.analysis,
+      };
+      setReport(updatedReport);
+      if (result.analysis?.heatmap_url) {
+        setImageViewMode('heatmap');
+      }
+      const scorePct = typeof result.analysis?.authenticity_score === 'number'
+        ? `${Math.round(result.analysis.authenticity_score * 100)}%`
+        : '';
+      setMessage({
+        type: 'success',
+        text: `✅ TruFor AI analysis completed! Authenticity: ${scorePct} (${result.analysis?.verdict || 'DONE'})`,
+      });
+    } catch (err) {
+      console.error('TruFor analysis failed:', err);
+      setMessage({
+        type: 'error',
+        text: err.response?.data?.message || 'TruFor analysis failed to complete.',
+      });
+    } finally {
+      setAnalyzingTrufor(false);
     }
   };
 
@@ -222,33 +261,133 @@ export default function ReportDetail() {
       <div className="detail-grid">
         {/* Left Column: Media & Map */}
         <div>
-          {/* Evidence Card */}
+          {/* Evidence Card with Interactive TruFor Heatmap Switch */}
           <div className="card" style={{ marginBottom: 20 }}>
-            <div className="card-header">
-              <h3>📸 Evidence Photo</h3>
+            <div className="card-header" style={{ flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0 }}>📸 Evidence Photo</h3>
+                {ai?.heatmap_url && (
+                  <div style={{ display: 'inline-flex', background: '#f1f5f9', borderRadius: 8, padding: 3, gap: 2 }}>
+                    <button
+                      type="button"
+                      onClick={() => setImageViewMode('original')}
+                      className={`btn btn-sm ${imageViewMode === 'original' ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ padding: '3px 10px', fontSize: 12, height: 'auto', borderRadius: 6 }}
+                    >
+                      Original
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImageViewMode('heatmap')}
+                      className={`btn btn-sm ${imageViewMode === 'heatmap' ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ padding: '3px 10px', fontSize: 12, height: 'auto', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 4 }}
+                    >
+                      🔥 Heatmap
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImageViewMode('split')}
+                      className={`btn btn-sm ${imageViewMode === 'split' ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ padding: '3px 10px', fontSize: 12, height: 'auto', borderRadius: 6 }}
+                    >
+                      🔀 Split
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {ai?.verdict === 'FAKE' ? (
                 <span style={{
                   background: '#fef2f2', color: '#dc2626', padding: '4px 10px',
-                  borderRadius: 6, fontSize: 12, fontWeight: 700
+                  borderRadius: 6, fontSize: 12, fontWeight: 700, border: '1px solid #fecaca'
                 }}>
-                  ⚠️ AI FLAG: FAKE
+                  ⚠️ AI FLAG: TAMPERED / FAKE
+                </span>
+              ) : ai?.verdict === 'SUSPICIOUS' ? (
+                <span style={{
+                  background: '#fef3c7', color: '#b45309', padding: '4px 10px',
+                  borderRadius: 6, fontSize: 12, fontWeight: 700, border: '1px solid #fde68a'
+                }}>
+                  ⚠️ SUSPICIOUS ANOMALY
+                </span>
+              ) : ai ? (
+                <span style={{
+                  background: '#ecfdf5', color: '#047857', padding: '4px 10px',
+                  borderRadius: 6, fontSize: 12, fontWeight: 600, border: '1px solid #a7f3d0'
+                }}>
+                  ✅ Camera Sensor Verified
                 </span>
               ) : (
                 <span style={{
-                  background: '#ecfdf5', color: '#047857', padding: '4px 10px',
-                  borderRadius: 6, fontSize: 12, fontWeight: 600
+                  background: '#f8fafc', color: '#64748b', padding: '4px 10px',
+                  borderRadius: 6, fontSize: 12, fontWeight: 500, border: '1px solid #e2e8f0'
                 }}>
-                  Authentic Evidence
+                  Unverified
                 </span>
               )}
             </div>
-            <div className="detail-image">
-              {report.image_url ? (
-                <img src={getFullImageUrl(report.image_url)} alt="Incident Evidence" />
-              ) : (
+
+            <div className="detail-image" style={{ position: 'relative', overflow: 'hidden' }}>
+              {!report.image_url ? (
                 <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9' }}>
                   <span className="material-icons-outlined" style={{ fontSize: 48, color: '#cbd5e1' }}>image</span>
                 </div>
+              ) : imageViewMode === 'split' && ai?.heatmap_url ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, background: '#0f172a' }}>
+                  <div style={{ position: 'relative' }}>
+                    <img
+                      src={getFullImageUrl(report.image_url)}
+                      alt="Original Evidence"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                    <span style={{
+                      position: 'absolute', bottom: 8, left: 8,
+                      background: 'rgba(0,0,0,0.7)', color: 'white',
+                      padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600
+                    }}>
+                      Original
+                    </span>
+                  </div>
+                  <div style={{ position: 'relative' }}>
+                    <img
+                      src={getFullImageUrl(ai.heatmap_url)}
+                      alt="TruFor Heatmap"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                    <span style={{
+                      position: 'absolute', bottom: 8, left: 8,
+                      background: 'rgba(239, 68, 68, 0.85)', color: 'white',
+                      padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600
+                    }}>
+                      TruFor Anomaly Heatmap
+                    </span>
+                  </div>
+                </div>
+              ) : imageViewMode === 'heatmap' && ai?.heatmap_url ? (
+                <div>
+                  <img
+                    src={getFullImageUrl(ai.heatmap_url)}
+                    alt="TruFor Forensic Heatmap"
+                    style={{ width: '100%', display: 'block', maxHeight: 420, objectFit: 'contain', background: '#0f172a' }}
+                  />
+                  <div style={{
+                    padding: '8px 16px', background: '#f8fafc', borderTop: '1px solid #e2e8f0',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12
+                  }}>
+                    <span style={{ color: '#3b82f6', fontWeight: 600 }}>🔵 Camera Sensor Noise</span>
+                    <div style={{
+                      height: 8, width: 140, borderRadius: 4,
+                      background: 'linear-gradient(90deg, #0000ff 0%, #00ffff 30%, #ffff00 70%, #ff0000 100%)'
+                    }} />
+                    <span style={{ color: '#ef4444', fontWeight: 700 }}>🔴 Manipulated / AI Area</span>
+                  </div>
+                </div>
+              ) : (
+                <img
+                  src={getFullImageUrl(report.image_url)}
+                  alt="Incident Evidence"
+                  style={{ width: '100%', display: 'block', maxHeight: 420, objectFit: 'contain', background: '#0f172a' }}
+                />
               )}
             </div>
           </div>
@@ -337,38 +476,158 @@ export default function ReportDetail() {
             </div>
           </div>
 
-          {/* AI Verification Analysis */}
-          {ai && (
-            <div className="card" style={{ marginBottom: 20, borderColor: '#e2e8f0' }}>
-              <div className="card-header">
-                <h3>🤖 AI Integrity Analysis</h3>
-                <span className={`badge ${ai.verdict === 'FAKE' ? 'rejected' : 'resolved'}`}>
-                  {ai.verdict || 'ANALYZED'}
-                </span>
-              </div>
-              <div className="card-body">
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                  <div>
-                    <div style={{ fontSize: 12, color: '#64748b' }}>Authenticity Score</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>
-                      {typeof ai.authenticity_score === 'number' ? `${Math.round(ai.authenticity_score * 100)}%` : 'N/A'}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: '#64748b' }}>Manipulation Probability</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: ai.manipulation_score > 0.5 ? '#ef4444' : '#64748b' }}>
-                      {typeof ai.manipulation_score === 'number' ? `${Math.round(ai.manipulation_score * 100)}%` : 'N/A'}
-                    </div>
-                  </div>
-                </div>
-                {ai.ai_generated_probability !== undefined && (
-                  <div style={{ marginTop: 12, fontSize: 13, color: '#64748b' }}>
-                    AI Generated Confidence: <strong>{Math.round((ai.ai_generated_probability || 0) * 100)}%</strong>
-                  </div>
+          {/* AI Verification Analysis (TruFor Integration) */}
+          <div className="card" style={{
+            marginBottom: 20,
+            borderColor: ai?.verdict === 'FAKE' ? '#fecaca' : '#e2e8f0',
+            borderWidth: ai?.verdict === 'FAKE' ? 2 : 1
+          }}>
+            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0 }}>🛡️ TruFor AI & Forgery Analysis</h3>
+                {ai?.model_version && (
+                  <span style={{
+                    fontSize: 11, background: '#f1f5f9', color: '#64748b',
+                    padding: '2px 8px', borderRadius: 12, fontWeight: 500
+                  }}>
+                    {ai.model_version}
+                  </span>
                 )}
               </div>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={handleRunTrufor}
+                disabled={analyzingTrufor}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  borderColor: '#3b82f6', color: '#2563eb'
+                }}
+              >
+                <span className="material-icons-outlined" style={{ fontSize: 16 }}>
+                  {analyzingTrufor ? 'sync' : 'auto_fix_high'}
+                </span>
+                {analyzingTrufor ? 'Analyzing image...' : (ai ? '🔄 Re-scan TruFor' : '⚡ Run TruFor Scan')}
+              </button>
             </div>
-          )}
+
+            <div className="card-body">
+              {ai ? (
+                <>
+                  {/* Authenticity Progress Gauge */}
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
+                      <span style={{ fontWeight: 600, color: '#334155' }}>Camera Sensor Authenticity</span>
+                      <span style={{
+                        fontWeight: 700,
+                        color: ai.authenticity_score >= 0.70 ? '#10b981' : (ai.authenticity_score >= 0.40 ? '#f59e0b' : '#ef4444')
+                      }}>
+                        {typeof ai.authenticity_score === 'number' ? `${Math.round(ai.authenticity_score * 100)}%` : 'N/A'}
+                      </span>
+                    </div>
+                    <div style={{ height: 10, width: '100%', background: '#e2e8f0', borderRadius: 999, overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${Math.round((ai.authenticity_score || 0) * 100)}%`,
+                        background: ai.authenticity_score >= 0.70
+                          ? 'linear-gradient(90deg, #10b981, #059669)'
+                          : (ai.authenticity_score >= 0.40
+                            ? 'linear-gradient(90deg, #f59e0b, #d97706)'
+                            : 'linear-gradient(90deg, #ef4444, #dc2626)'),
+                        transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                      }} />
+                    </div>
+                  </div>
+
+                  {/* 3 Metric Columns */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, background: '#f8fafc', padding: 12, borderRadius: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>Authenticity</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: '#10b981', marginTop: 2 }}>
+                        {typeof ai.authenticity_score === 'number' ? `${Math.round(ai.authenticity_score * 100)}%` : 'N/A'}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>Manipulation</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: (ai.manipulation_score || 0) > 0.4 ? '#ef4444' : '#64748b', marginTop: 2 }}>
+                        {typeof ai.manipulation_score === 'number' ? `${Math.round(ai.manipulation_score * 100)}%` : 'N/A'}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>AI Generated</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: (ai.ai_generated_probability || 0) > 0.5 ? '#dc2626' : '#64748b', marginTop: 2 }}>
+                        {typeof ai.ai_generated_probability === 'number' ? `${Math.round(ai.ai_generated_probability * 100)}%` : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Model Verdict & Timestamp */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, fontSize: 12, color: '#64748b' }}>
+                    <div>
+                      Verdict:{' '}
+                      <strong style={{
+                        color: ai.verdict === 'FAKE' ? '#dc2626' : (ai.verdict === 'SUSPICIOUS' ? '#b45309' : '#047857')
+                      }}>
+                        {ai.verdict === 'FAKE' ? 'TAMPERED / AI FAKE' : (ai.verdict === 'SUSPICIOUS' ? 'SUSPICIOUS ARTIFACTS' : 'AUTHENTIC HARDWARE CAPTURE')}
+                      </strong>
+                    </div>
+                    {ai.analyzed_at && (
+                      <span>
+                        Scanned: {new Date(ai.analyzed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Tampered Warning + Quick Reject Button */}
+                  {(ai.verdict === 'FAKE' || (ai.manipulation_score || 0) >= 0.65) && (
+                    <div style={{
+                      marginTop: 16, padding: 12, borderRadius: 8,
+                      background: '#fef2f2', border: '1px solid #fecaca',
+                      display: 'flex', flexDirection: 'column', gap: 10
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, color: '#991b1b', fontSize: 13 }}>
+                        <span className="material-icons-outlined" style={{ fontSize: 20, color: '#dc2626' }}>warning</span>
+                        <div>
+                          <strong>High Forgery Risk Detected:</strong> TruFor pixel anomaly detection identified localized synthetic artifacts or sensor noise tampering.
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-sm"
+                          onClick={() => {
+                            setDeclineReason('Fake report / AI generated');
+                            setShowDeclineDialog(true);
+                          }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                        >
+                          <span className="material-icons-outlined" style={{ fontSize: 16 }}>block</span>
+                          Decline as Fake / AI Generated
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ padding: '24px 12px', textAlign: 'center', background: '#f8fafc', borderRadius: 8 }}>
+                  <span className="material-icons-outlined" style={{ fontSize: 36, color: '#94a3b8' }}>verified</span>
+                  <p style={{ color: '#475569', fontSize: 14, margin: '8px 0 12px 0' }}>
+                    No AI integrity scan has been performed on this incident evidence yet.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={handleRunTrufor}
+                    disabled={analyzingTrufor}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <span className="material-icons-outlined" style={{ fontSize: 16 }}>auto_fix_high</span>
+                    {analyzingTrufor ? 'Analyzing with TruFor...' : 'Run TruFor Integrity Scan'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Admin Actions */}
           <div className="card" style={{ marginBottom: 20 }}>

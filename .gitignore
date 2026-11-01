@@ -10,3 +10,13 @@ build/
 
 # Sensitive Firebase config
 trace-*-firebase-adminsdk-*.json
+
+# Uploads & Large ML weights
+uploads/
+*.pth.tar
+*.pth
+.turbo/
+__pycache__/
+*.pyc
+
+

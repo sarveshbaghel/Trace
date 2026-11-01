@@ -10,6 +10,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { TwitterModule } from './common/twitter/twitter.module';
 import { FirebaseModule } from './common/firebase/firebase.module';
+import { TruforModule } from './common/trufor/trufor.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { FirebaseModule } from './common/firebase/firebase.module';
     ]),
     PrismaModule,
     FirebaseModule,
+    TruforModule,
     AdminModule,
     ComplaintsModule,
     AuthModule,

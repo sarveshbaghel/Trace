@@ -284,15 +284,33 @@ export default function ReportsList() {
                           </td>
                           <td>
                             {aiVerdict === 'FAKE' ? (
-                              <span style={{ background: '#fef2f2', color: '#dc2626', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>
-                                ⚠️ FAKE
+                              <span style={{
+                                background: '#fef2f2', color: '#dc2626', padding: '3px 8px',
+                                borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid #fecaca',
+                                display: 'inline-flex', alignItems: 'center', gap: 4
+                              }}>
+                                ⚠️ FAKE / AI
+                              </span>
+                            ) : aiVerdict === 'SUSPICIOUS' ? (
+                              <span style={{
+                                background: '#fef3c7', color: '#b45309', padding: '3px 8px',
+                                borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid #fde68a',
+                                display: 'inline-flex', alignItems: 'center', gap: 4
+                              }}>
+                                ⚠️ SUSPICIOUS
                               </span>
                             ) : typeof authScore === 'number' ? (
-                              <span style={{ color: authScore > 0.7 ? '#10b981' : '#f59e0b', fontSize: 12, fontWeight: 600 }}>
-                                {Math.round(authScore * 100)}% authentic
+                              <span style={{
+                                background: authScore >= 0.7 ? '#ecfdf5' : '#fef3c7',
+                                color: authScore >= 0.7 ? '#047857' : '#b45309',
+                                border: authScore >= 0.7 ? '1px solid #a7f3d0' : '1px solid #fde68a',
+                                padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                                display: 'inline-flex', alignItems: 'center', gap: 4
+                              }}>
+                                {authScore >= 0.7 ? '🛡️' : '⚠️'} {Math.round(authScore * 100)}% authentic
                               </span>
                             ) : (
-                              <span style={{ color: '#94a3b8', fontSize: 12 }}>—</span>
+                              <span style={{ color: '#94a3b8', fontSize: 12 }}>Unscanned</span>
                             )}
                           </td>
                           <td>

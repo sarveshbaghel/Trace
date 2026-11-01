@@ -593,6 +593,11 @@ textarea {
   to { transform: rotate(360deg); }
 }
 
+.rotating {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
 .empty-state {
   text-align: center;
   padding: 60px 20px;
