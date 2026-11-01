@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,46 +16,12 @@ import {
 } from 'react-native';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import Geolocation from 'react-native-geolocation-service';
+import { WebView } from 'react-native-webview';
 import { theme } from '../theme';
 import { useAuthStore } from '../store/authStore';
 import { TraceApi } from '../api/TraceApi';
-import { OLA_MAPS_API_KEY } from '../config/env';
 
-// Safe MapView import — prevents crash if native module isn't linked
-let MapViewComponent: any = null;
-let MarkerComponent: any = null;
-let UrlTileComponent: any = null;
-try {
-  const maps = require('react-native-maps');
-  MapViewComponent = maps.default;
-  MarkerComponent = maps.Marker;
-  UrlTileComponent = maps.UrlTile;
-} catch (e) {
-  console.warn('react-native-maps is not available:', e);
-}
-
-// Error boundary to catch native MapView crashes (e.g. missing API key)
-class MapErrorBoundary extends React.Component<
-  { children: React.ReactNode; fallback: React.ReactNode },
-  { hasError: boolean }
-> {
-  state = { hasError: false };
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: any, info: any) {
-    console.warn('MapView crashed:', error, info);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return this.props.fallback as React.ReactElement;
-    }
-    return this.props.children;
-  }
-}
+const SafeWebView = WebView as any;
 
 interface ReportScreenProps {
   navigation: any;
@@ -76,6 +42,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
   const [showMapModal, setShowMapModal] = useState(false);
   const [tempLat, setTempLat] = useState(26.2183);
   const [tempLng, setTempLng] = useState(78.1828);
+  const mapPickerWebViewRef = useRef<any>(null);
 
   const reportDate = new Date();
   const dateString = reportDate.toLocaleDateString('en-US', {
@@ -93,16 +60,88 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
       try {
         const response = await fetch(
           `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
-          { headers: { 'User-Agent': 'TraceApp/1.0' } },
+          { headers: { 'User-Agent': 'TraceApp/1.0 (contact@trace.app)' } },
         );
         const data = await response.json();
-        return data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        if (data && data.address) {
+          const a = data.address;
+          const road = a.road || a.pedestrian || a.suburb || a.neighbourhood || '';
+          const locality = a.city || a.town || a.village || a.county || '';
+          const state = a.state || '';
+          const postcode = a.postcode || '';
+          const parts = [road, locality, state, postcode].filter(Boolean);
+          if (parts.length > 0) {
+            return parts.join(', ');
+          }
+        }
+        return data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
       } catch {
-        return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
       }
     },
     [],
   );
+
+  const requestLocationPermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+        ]);
+        return (
+          granted[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] ===
+            PermissionsAndroid.RESULTS.GRANTED ||
+          granted[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] ===
+            PermissionsAndroid.RESULTS.GRANTED
+        );
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  /**
+   * Robust GPS location retrieval:
+   * 1. Attempts High Accuracy (GPS hardware) first.
+   * 2. If it times out (e.g. indoors or slow satellite lock), gracefully
+   *    falls back to Network/Fused location provider so user never gets stuck.
+   */
+  const getCurrentLocation = (): Promise<{ latitude: number; longitude: number }> => {
+    return new Promise(async (resolve, reject) => {
+      const hasPermission = await requestLocationPermission();
+      if (!hasPermission) {
+        return reject(new Error('Location permission denied'));
+      }
+
+      Geolocation.getCurrentPosition(
+        position => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        _highAccErr => {
+          // Fallback to balanced/network provider
+          Geolocation.getCurrentPosition(
+            position => {
+              resolve({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+              });
+            },
+            lowAccErr => {
+              reject(lowAccErr);
+            },
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 },
+          );
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 },
+      );
+    });
+  };
 
   const handleCamera = async () => {
     if (Platform.OS === 'android') {
@@ -144,72 +183,51 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
     }
   };
 
-  const requestLocationPermission = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-        ]);
-        return (
-          granted[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] ===
-            PermissionsAndroid.RESULTS.GRANTED ||
-          granted[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] ===
-            PermissionsAndroid.RESULTS.GRANTED
-        );
-      } catch (err) {
-        console.warn(err);
-        return false;
-      }
-    }
-    return true;
-  };
-
   const handleLiveLocation = async () => {
     setLocationMode('live');
     setLocationLoading(true);
-    const hasPermission = await requestLocationPermission();
-    if (hasPermission) {
-      Geolocation.getCurrentPosition(
-        async position => {
-          let lat = position.coords.latitude;
-          let lng = position.coords.longitude;
-
-          // Emulator mock location override (if the user hasn't changed it from the default Googleplex)
-          if (Math.abs(lat - 37.422) < 0.1 && Math.abs(lng - -122.084) < 0.1) {
-            lat = 26.2183;
-            lng = 78.1828;
-          }
-
-          setLatitude(lat);
-          setLongitude(lng);
-          const addr = await reverseGeocode(lat, lng);
-          setAddress(addr);
-          setLocationLoading(false);
-        },
-        error => {
-          console.log(error.code, error.message);
-          setLocationLoading(false);
-          Alert.alert(
-            'Failed to detect location. Ensure location is enabled in device settings.',
-          );
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
+    try {
+      const loc = await getCurrentLocation();
+      setLatitude(loc.latitude);
+      setLongitude(loc.longitude);
+      setTempLat(loc.latitude);
+      setTempLng(loc.longitude);
+      const addr = await reverseGeocode(loc.latitude, loc.longitude);
+      setAddress(addr);
+    } catch (error: any) {
+      console.warn('Location detection error:', error);
+      Alert.alert(
+        'Location Detection Failed',
+        'Could not detect your current location. Please ensure Location/GPS is turned on in your device settings.',
       );
-    } else {
+    } finally {
       setLocationLoading(false);
-      Alert.alert('Location permission denied');
     }
   };
 
-  const handleSelectFromMap = () => {
+  const handleSelectFromMap = async () => {
     setLocationMode('map');
-    // Seed the map with current location if available, otherwise use default
+    // If coordinates are already set, center picker on them
     if (latitude && longitude) {
       setTempLat(latitude);
       setTempLng(longitude);
+      setShowMapModal(true);
+    } else {
+      // First try to detect user's current GPS location so map opens directly on them
+      setLocationLoading(true);
+      try {
+        const loc = await getCurrentLocation();
+        setTempLat(loc.latitude);
+        setTempLng(loc.longitude);
+      } catch (e) {
+        // Fallback default coordinates if GPS off/denied
+        setTempLat(26.2183);
+        setTempLng(78.1828);
+      } finally {
+        setLocationLoading(false);
+        setShowMapModal(true);
+      }
     }
-    setShowMapModal(true);
   };
 
   const handleConfirmMapLocation = async () => {
@@ -221,6 +239,118 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
     setAddress(addr);
     setLocationLoading(false);
   };
+
+  const handleRecenterMapToGps = async () => {
+    try {
+      const loc = await getCurrentLocation();
+      setTempLat(loc.latitude);
+      setTempLng(loc.longitude);
+      mapPickerWebViewRef.current?.postMessage(
+        JSON.stringify({
+          type: 'SET_CENTER',
+          lat: loc.latitude,
+          lng: loc.longitude,
+        }),
+      );
+    } catch (e: any) {
+      Alert.alert('GPS Location', e?.message || 'Could not fetch current GPS location.');
+    }
+  };
+
+  // Generate Leaflet OpenStreetMap HTML for Interactive Location Picker
+  const generatePickerHtml = (initLat: number, initLng: number) => `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #map { width: 100%; height: 100%; background: #f8fafc; }
+    .custom-pin {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 34px;
+      cursor: grab;
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+      animation: pinBounce 0.8s ease infinite alternate;
+    }
+    @keyframes pinBounce {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-6px); }
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    var currentLat = ${initLat};
+    var currentLng = ${initLng};
+
+    var map = L.map('map', {
+      zoomControl: false,
+      attributionControl: false
+    }).setView([currentLat, currentLng], 16);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(map);
+
+    L.control.zoom({ position: 'topright' }).addTo(map);
+
+    var pinIcon = L.divIcon({
+      className: '',
+      html: '<div class="custom-pin">📍</div>',
+      iconSize: [44, 44],
+      iconAnchor: [22, 40],
+    });
+
+    var marker = L.marker([currentLat, currentLng], {
+      icon: pinIcon,
+      draggable: true,
+      autoPan: true
+    }).addTo(map);
+
+    function emitLocation(lat, lng) {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'LOCATION_CHANGED',
+          lat: Number(lat.toFixed(6)),
+          lng: Number(lng.toFixed(6))
+        }));
+      }
+    }
+
+    marker.on('dragend', function(e) {
+      var pos = marker.getLatLng();
+      emitLocation(pos.lat, pos.lng);
+    });
+
+    map.on('click', function(e) {
+      marker.setLatLng(e.latlng);
+      emitLocation(e.latlng.lat, e.latlng.lng);
+    });
+
+    function handleRNMessage(event) {
+      try {
+        var data = JSON.parse(event.data);
+        if (data.type === 'SET_CENTER') {
+          map.setView([data.lat, data.lng], 16);
+          marker.setLatLng([data.lat, data.lng]);
+          emitLocation(data.lat, data.lng);
+        }
+      } catch (err) {}
+    }
+
+    window.addEventListener('message', handleRNMessage);
+    document.addEventListener('message', handleRNMessage);
+  </script>
+</body>
+</html>`;
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -267,18 +397,6 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
     'Water leakage',
     'Other',
   ];
-
-  // ─── Map Fallback (when Maps SDK is unavailable) ─────────────────
-  const mapFallback = (
-    <View style={styles.mapFallback}>
-      <Text style={styles.mapFallbackIcon}>🗺️</Text>
-      <Text style={styles.mapFallbackTitle}>Map Unavailable</Text>
-      <Text style={styles.mapFallbackText}>
-        Please configure your Google Maps API key in AndroidManifest.xml to use
-        this feature.
-      </Text>
-    </View>
-  );
 
   // ─── Main Form ──────────────────────────────────────────────────
   return (
@@ -453,7 +571,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* ─── Map Picker Modal ─────────────────────────────────────── */}
+      {/* ─── Leaflet OpenStreetMap Interactive Map Picker Modal ─── */}
       <Modal
         visible={showMapModal}
         animationType="slide"
@@ -467,7 +585,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
               style={styles.modalHeaderBtn}>
               <Text style={styles.modalCancel}>Cancel</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Select Location</Text>
+            <Text style={styles.modalTitle}>Pin Incident Location</Text>
             <TouchableOpacity
               onPress={handleConfirmMapLocation}
               style={styles.modalHeaderBtn}>
@@ -475,45 +593,58 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Map */}
+          {/* Interactive Leaflet Map */}
           <View style={styles.modalMapContainer}>
-            {MapViewComponent ? (
-              <MapErrorBoundary fallback={mapFallback}>
-                <MapViewComponent
-                  style={styles.modalMap}
-                  mapType="standard"
-                  initialRegion={{
-                    latitude: tempLat,
-                    longitude: tempLng,
-                    latitudeDelta: 0.01,
-                    longitudeDelta: 0.01,
-                  }}
-                  onRegionChangeComplete={(region: any) => {
-                    setTempLat(region.latitude);
-                    setTempLng(region.longitude);
-                  }}>
-                  {MarkerComponent && (
-                    <MarkerComponent
-                      coordinate={{ latitude: tempLat, longitude: tempLng }}
-                      draggable
-                      onDragEnd={(e: any) => {
-                        setTempLat(e.nativeEvent.coordinate.latitude);
-                        setTempLng(e.nativeEvent.coordinate.longitude);
-                      }}
-                    />
-                  )}
-                </MapViewComponent>
-              </MapErrorBoundary>
-            ) : (
-              mapFallback
-            )}
+            <SafeWebView
+              ref={mapPickerWebViewRef}
+              originWhitelist={['*']}
+              source={{ html: generatePickerHtml(tempLat, tempLng) }}
+              style={styles.modalMap}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              scrollEnabled={false}
+              bounces={false}
+              showsVerticalScrollIndicator={false}
+              showsHorizontalScrollIndicator={false}
+              onMessage={(event: any) => {
+                try {
+                  const data = JSON.parse(event.nativeEvent.data);
+                  if (data.type === 'LOCATION_CHANGED') {
+                    setTempLat(data.lat);
+                    setTempLng(data.lng);
+                  }
+                } catch (e) {}
+              }}
+            />
+
+            {/* Recenter to Current GPS Button */}
+            <TouchableOpacity
+              style={styles.modalGpsButton}
+              onPress={handleRecenterMapToGps}
+              activeOpacity={0.8}>
+              <Text style={styles.modalGpsIcon}>🎯</Text>
+              <Text style={styles.modalGpsText}>My GPS</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Hint */}
+          {/* Bottom Coordinate & Hint Bar */}
           <View style={styles.modalHintContainer}>
+            <View style={styles.modalCoordRow}>
+              <Text style={styles.modalCoordLabel}>Selected Coordinates:</Text>
+              <Text style={styles.modalCoordValue}>
+                {tempLat.toFixed(5)}, {tempLng.toFixed(5)}
+              </Text>
+            </View>
             <Text style={styles.modalHintText}>
-              Drag the marker or pan the map to fine-tune the location
+              Tap anywhere on map or drag 📍 to set exact incident spot
             </Text>
+            <TouchableOpacity
+              style={styles.modalConfirmBottomBtn}
+              onPress={handleConfirmMapLocation}>
+              <Text style={styles.modalConfirmBottomBtnText}>
+                ✓ Use This Location
+              </Text>
+            </TouchableOpacity>
           </View>
         </SafeAreaView>
       </Modal>
@@ -836,46 +967,76 @@ const styles = StyleSheet.create({
   },
   modalMapContainer: {
     flex: 1,
+    position: 'relative',
   },
   modalMap: {
     flex: 1,
   },
+  modalGpsButton: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    zIndex: 10,
+  },
+  modalGpsIcon: {
+    fontSize: 18,
+  },
+  modalGpsText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.primary,
+  },
   modalHintContainer: {
     backgroundColor: theme.colors.surface,
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 20,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
-    alignItems: 'center',
   },
-  modalHintText: {
+  modalCoordRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  modalCoordLabel: {
     fontSize: 13,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
+    fontWeight: '500',
   },
-
-  /* Map Fallback */
-  mapFallback: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-    backgroundColor: '#F1F5F9',
-  },
-  mapFallbackIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  mapFallbackTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: theme.colors.text,
-    marginBottom: 8,
-  },
-  mapFallbackText: {
+  modalCoordValue: {
     fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.primary,
+  },
+  modalHintText: {
+    fontSize: 12,
     color: theme.colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
+    marginBottom: 12,
+  },
+  modalConfirmBottomBtn: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalConfirmBottomBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

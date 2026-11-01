@@ -5,6 +5,8 @@ import Geolocation from 'react-native-geolocation-service';
 import { TraceApi } from '../api/TraceApi';
 import { theme } from '../theme';
 
+const SafeWebView = WebView as any;
+
 interface MapScreenProps {
   navigation: any;
 }
@@ -14,7 +16,7 @@ export const MapScreen: React.FC<MapScreenProps> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<any>(null);
 
   useEffect(() => {
     fetchComplaints();
@@ -209,7 +211,7 @@ export const MapScreen: React.FC<MapScreenProps> = ({ navigation }) => {
             <Text style={styles.loadingText}>Loading reports...</Text>
           </View>
         ) : (
-          <WebView
+          <SafeWebView
             ref={webViewRef}
             originWhitelist={['*']}
             source={{ html: leafletHtml }}
