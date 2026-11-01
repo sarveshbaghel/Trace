@@ -176,8 +176,16 @@ export class ComplaintsService {
           },
         });
 
-        // Fire and forget tweet post
-        const tweetText = `New ${data.category} reported at ${data.address || 'a location'}! #TraceApp #CivicIssue`;
+        // Fire and forget tweet post with structured format: Issue -> Date & Time -> Location -> Image -> Tags
+        const dateStr = new Date().toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        const locStr = data.address || (data.latitude && data.longitude ? `${Number(data.latitude).toFixed(4)}, ${Number(data.longitude).toFixed(4)}` : 'Reported Location');
+        const tweetText = `🚨 Issue: ${data.category}\n📅 Date: ${dateStr}\n📍 Location: ${locStr}\n\n#TraceApp #CivicAction #CivicIssue`;
         this.twitterService.postTweet(tweetText, imageUrl).catch(() => null);
 
         return complaint;

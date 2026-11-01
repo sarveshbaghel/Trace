@@ -39,25 +39,6 @@ export const ReportSummaryScreen: React.FC<ReportSummaryScreenProps> = ({
     }
   }
 
-  const handlePostOnX = () => {
-    const tagString = tags.length > 0 ? tags.join(' ') : '#TraceApp #CivicAction';
-    const text = `I just reported a ${report?.category || 'Civic Issue'} at ${
-      report?.address || 'my location'
-    } using Trace App!\n\n${
-      cleanDescription ? cleanDescription + '\n\n' : ''
-    }${tagString}`;
-    const urlParam =
-      report?.image_url && report.image_url.startsWith('http')
-        ? `&url=${encodeURIComponent(report.image_url)}`
-        : '';
-    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-      text,
-    )}${urlParam}`;
-    Linking.openURL(twitterUrl).catch(err =>
-      console.error('Error opening X:', err),
-    );
-  };
-
   const getEmoji = (type: string) => {
     switch (type) {
       case 'Pothole':
@@ -88,6 +69,53 @@ export const ReportSummaryScreen: React.FC<ReportSummaryScreenProps> = ({
         minute: '2-digit',
       })
     : new Date().toLocaleTimeString();
+
+  const handlePostOnX = () => {
+    const category = report?.category || 'Civic Issue';
+    const tagString = tags.length > 0 ? tags.join(' ') : '#TraceApp #CivicAction';
+    const locationStr =
+      report?.address ||
+      (report?.latitude && report?.longitude
+        ? `${Number(report.latitude).toFixed(4)}, ${Number(
+            report.longitude,
+          ).toFixed(4)}`
+        : 'Reported Location');
+
+    // 1. Issue -> 2. Date and Time -> 3. Location -> 4. Evidence -> 5. Tags
+    const header = `🚨 Issue: ${getEmoji(category)} ${category}`;
+    const dateLine = `📅 Date & Time: ${formattedDate} • ${formattedTime}`;
+    const locLine = `📍 Location: ${locationStr}`;
+
+    // Fit description within Twitter's 280 character limit
+    const fixedLength =
+      header.length + dateLine.length + locLine.length + tagString.length + 30;
+    const maxDescLen = Math.max(25, 260 - fixedLength);
+    const descLine =
+      cleanDescription && cleanDescription !== 'No description provided.'
+        ? `\n📝 Details: ${
+            cleanDescription.length > maxDescLen
+              ? cleanDescription.substring(0, maxDescLen - 3) + '...'
+              : cleanDescription
+          }`
+        : '';
+
+    const tweetText = `${header}${descLine}\n${dateLine}\n${locLine}\n\n${tagString}`;
+
+    // Attach full image URL so Twitter unfurls/embeds the evidence photo
+    const fullImg = getFullImageUrl(report?.image_url);
+    const urlParam =
+      fullImg && fullImg.startsWith('http')
+        ? `&url=${encodeURIComponent(fullImg)}`
+        : '';
+
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+      tweetText,
+    )}${urlParam}`;
+
+    Linking.openURL(twitterUrl).catch(err =>
+      console.error('Error opening X:', err),
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
