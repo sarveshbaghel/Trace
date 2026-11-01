@@ -394,7 +394,18 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
       navigation.replace('ReportSummary', { report: reportForSummary });
     } catch (e: any) {
       setLoading(false);
-      Alert.alert(e.message || 'Error submitting report');
+      const msg = e.message || 'Error submitting report';
+      if (
+        msg.includes('Network request failed') ||
+        msg.includes('Network Error')
+      ) {
+        Alert.alert(
+          'Connection Issue',
+          'Could not connect to the TRACE backend. If the cloud server is waking up, please wait a moment and tap Submit again.',
+        );
+      } else {
+        Alert.alert('Submission Error', msg);
+      }
     }
   };
 
