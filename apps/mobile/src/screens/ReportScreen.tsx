@@ -44,25 +44,6 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
   const [tempLng, setTempLng] = useState(78.1828);
   const mapPickerWebViewRef = useRef<any>(null);
 
-  // Tags state
-  const [selectedTags, setSelectedTags] = useState<string[]>(['#Urgent']);
-
-  const availableTags = [
-    '#Urgent',
-    '#RoadSafety',
-    '#CleanCity',
-    '#WaterHazard',
-    '#Streetlight',
-    '#PublicHealth',
-    '#PedestrianRisk',
-    '#HighPriority',
-  ];
-
-  const toggleTag = (tag: string) => {
-    setSelectedTags(prev =>
-      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag],
-    );
-  };
 
   const reportDate = new Date();
   const dateString = reportDate.toLocaleDateString('en-US', {
@@ -379,12 +360,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
       const formData = new FormData();
       formData.append('category', issueType || 'Other');
       
-      const tagString = selectedTags.length > 0 ? selectedTags.join(' ') : '';
-      const fullDescription = tagString
-        ? `${description.trim()}\n\nTags: ${tagString}`
-        : description.trim();
-
-      formData.append('description', fullDescription);
+      formData.append('description', description.trim());
       formData.append('latitude', String(latitude));
       formData.append('longitude', String(longitude));
       if (address) {
@@ -408,8 +384,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
       const reportForSummary = {
         ...response,
         category: issueType || 'Other',
-        description: description,
-        tags: selectedTags,
+        description: description.trim(),
         address: address,
         latitude: latitude,
         longitude: longitude,
@@ -441,72 +416,38 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
         <Text style={styles.title}>Report an Issue</Text>
         <Text style={styles.subtitle}>Log a civic issue with evidence and location</Text>
 
-        {/* ─── 1. Issue Details ─────────────────────────────────────── */}
+        {/* ─── 1. Evidence Photo ─────────────────────────────────────── */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
             <View style={styles.stepBadge}>
               <Text style={styles.stepBadgeText}>1</Text>
             </View>
-            <Text style={styles.sectionTitle}>Issue Details</Text>
+            <Text style={styles.sectionTitle}>Evidence Photo</Text>
           </View>
 
-          <Text style={styles.label}>Issue Type</Text>
-          <TouchableOpacity
-            style={styles.dropdownButton}
-            onPress={() => setDropdownExpanded(!dropdownExpanded)}
-            activeOpacity={0.7}>
-            <Text
-              style={[
-                styles.dropdownButtonText,
-                !issueType && { color: theme.colors.textSecondary },
-              ]}>
-              {issueType || 'Select issue category...'}
-            </Text>
-            <Text style={styles.dropdownArrow}>
-              {dropdownExpanded ? '▲' : '▼'}
-            </Text>
-          </TouchableOpacity>
-
-          {dropdownExpanded && (
-            <View style={styles.dropdown}>
-              {issueTypes.map((type, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.dropdownItem,
-                    index === issueTypes.length - 1 && { borderBottomWidth: 0 },
-                  ]}
-                  onPress={() => {
-                    setIssueType(type);
-                    setDropdownExpanded(false);
-                  }}>
-                  <Text
-                    style={[
-                      styles.dropdownItemText,
-                      issueType === type && {
-                        color: theme.colors.primary,
-                        fontWeight: '700',
-                      },
-                    ]}>
-                    {type}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+          {imageUri && (
+            <View style={styles.imagePreviewWrapper}>
+              <Image source={{ uri: imageUri }} style={styles.previewImage} />
+              <TouchableOpacity
+                style={styles.removeImageBtn}
+                onPress={() => setImageUri(null)}>
+                <Text style={styles.removeImageText}>✕ Remove</Text>
+              </TouchableOpacity>
             </View>
           )}
 
-          <Text style={[styles.label, { marginTop: 14 }]}>Description</Text>
-          <TextInput
-            style={styles.textArea}
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Describe the issue in detail (e.g. location cues, hazard level)..."
-            placeholderTextColor={theme.colors.textSecondary}
-            multiline
-            textAlignVertical="top"
-            maxLength={500}
-          />
-          <Text style={styles.charCount}>{description.length}/500</Text>
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={styles.outlineButton} onPress={handleCamera}>
+              <Text style={styles.outlineButtonIcon}>📷</Text>
+              <Text style={styles.outlineButtonLabel}>Camera</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.outlineButton}
+              onPress={handleGallery}>
+              <Text style={styles.outlineButtonIcon}>🖼️</Text>
+              <Text style={styles.outlineButtonLabel}>Gallery</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* ─── 2. Date and Time ─────────────────────────────────────── */}
@@ -601,71 +542,72 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
           )}
         </View>
 
-        {/* ─── 4. Image ────────────────────────────────────────────── */}
+        {/* ─── 4. Issue Details ─────────────────────────────────────── */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
             <View style={styles.stepBadge}>
               <Text style={styles.stepBadgeText}>4</Text>
             </View>
-            <Text style={styles.sectionTitle}>Evidence Photo</Text>
+            <Text style={styles.sectionTitle}>Issue Details</Text>
           </View>
 
-          {imageUri && (
-            <View style={styles.imagePreviewWrapper}>
-              <Image source={{ uri: imageUri }} style={styles.previewImage} />
-              <TouchableOpacity
-                style={styles.removeImageBtn}
-                onPress={() => setImageUri(null)}>
-                <Text style={styles.removeImageText}>✕ Remove</Text>
-              </TouchableOpacity>
+          <Text style={styles.label}>Issue Type</Text>
+          <TouchableOpacity
+            style={styles.dropdownButton}
+            onPress={() => setDropdownExpanded(!dropdownExpanded)}
+            activeOpacity={0.7}>
+            <Text
+              style={[
+                styles.dropdownButtonText,
+                !issueType && { color: theme.colors.textSecondary },
+              ]}>
+              {issueType || 'Select issue category...'}
+            </Text>
+            <Text style={styles.dropdownArrow}>
+              {dropdownExpanded ? '▲' : '▼'}
+            </Text>
+          </TouchableOpacity>
+
+          {dropdownExpanded && (
+            <View style={styles.dropdown}>
+              {issueTypes.map((type, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.dropdownItem,
+                    index === issueTypes.length - 1 && { borderBottomWidth: 0 },
+                  ]}
+                  onPress={() => {
+                    setIssueType(type);
+                    setDropdownExpanded(false);
+                  }}>
+                  <Text
+                    style={[
+                      styles.dropdownItemText,
+                      issueType === type && {
+                        color: theme.colors.primary,
+                        fontWeight: '700',
+                      },
+                    ]}>
+                    {type}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           )}
 
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.outlineButton} onPress={handleCamera}>
-              <Text style={styles.outlineButtonIcon}>📷</Text>
-              <Text style={styles.outlineButtonLabel}>Camera</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.outlineButton}
-              onPress={handleGallery}>
-              <Text style={styles.outlineButtonIcon}>🖼️</Text>
-              <Text style={styles.outlineButtonLabel}>Gallery</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* ─── 5. Some Tags ────────────────────────────────────────── */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={styles.stepBadge}>
-              <Text style={styles.stepBadgeText}>5</Text>
-            </View>
-            <Text style={styles.sectionTitle}>Tags</Text>
-          </View>
-          <Text style={styles.tagsSubtitle}>
-            Select tags to categorize and escalate priority:
-          </Text>
-          <View style={styles.tagsContainer}>
-            {availableTags.map(tag => {
-              const isSelected = selectedTags.includes(tag);
-              return (
-                <TouchableOpacity
-                  key={tag}
-                  style={[styles.tagChip, isSelected && styles.tagChipActive]}
-                  onPress={() => toggleTag(tag)}
-                  activeOpacity={0.7}>
-                  <Text
-                    style={[
-                      styles.tagChipText,
-                      isSelected && styles.tagChipTextActive,
-                    ]}>
-                    {isSelected ? `✓ ${tag}` : tag}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <Text style={[styles.label, { marginTop: 14 }]}>Description</Text>
+          <TextInput
+            style={styles.textArea}
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Describe the issue in detail (e.g. location cues, hazard level)..."
+            placeholderTextColor={theme.colors.textSecondary}
+            multiline
+            textAlignVertical="top"
+            maxLength={500}
+          />
+          <Text style={styles.charCount}>{description.length}/500</Text>
         </View>
 
         {/* Submit Button */}

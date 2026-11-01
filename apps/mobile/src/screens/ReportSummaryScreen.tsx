@@ -23,20 +23,10 @@ export const ReportSummaryScreen: React.FC<ReportSummaryScreenProps> = ({
 }) => {
   const { report } = route.params;
 
-  // Extract clean description and tags
+  // Clean description text
   let cleanDescription = report?.description || 'No description provided.';
-  let tags: string[] = [];
-
-  if (Array.isArray(report?.tags) && report.tags.length > 0) {
-    tags = report.tags;
-  } else if (typeof report?.tags === 'string' && report.tags.trim()) {
-    tags = report.tags.split(' ').filter((t: string) => t.trim().length > 0);
-  } else if (cleanDescription.includes('Tags:')) {
-    const parts = cleanDescription.split(/Tags:\s*/);
-    cleanDescription = parts[0].trim();
-    if (parts[1]) {
-      tags = parts[1].split(' ').filter((t: string) => t.trim().length > 0);
-    }
+  if (cleanDescription.includes('Tags:')) {
+    cleanDescription = cleanDescription.split(/Tags:\s*/)[0].trim();
   }
 
   const getEmoji = (type: string) => {
@@ -72,7 +62,6 @@ export const ReportSummaryScreen: React.FC<ReportSummaryScreenProps> = ({
 
   const handlePostOnX = () => {
     const category = report?.category || 'Civic Issue';
-    const tagString = tags.length > 0 ? tags.join(' ') : '#TraceApp #CivicAction';
     const locationStr =
       report?.address ||
       (report?.latitude && report?.longitude
@@ -81,15 +70,14 @@ export const ReportSummaryScreen: React.FC<ReportSummaryScreenProps> = ({
           ).toFixed(4)}`
         : 'Reported Location');
 
-    // 1. Issue -> 2. Date and Time -> 3. Location -> 4. Evidence -> 5. Tags
+    // Sequence: 1. Evidence Photo -> 2. Date & Time -> 3. Location -> 4. Issue Details
     const header = `🚨 Issue: ${getEmoji(category)} ${category}`;
     const dateLine = `📅 Date & Time: ${formattedDate} • ${formattedTime}`;
     const locLine = `📍 Location: ${locationStr}`;
 
     // Fit description within Twitter's 280 character limit
-    const fixedLength =
-      header.length + dateLine.length + locLine.length + tagString.length + 30;
-    const maxDescLen = Math.max(25, 260 - fixedLength);
+    const fixedLength = header.length + dateLine.length + locLine.length + 25;
+    const maxDescLen = Math.max(30, 260 - fixedLength);
     const descLine =
       cleanDescription && cleanDescription !== 'No description provided.'
         ? `\n📝 Details: ${
@@ -99,7 +87,7 @@ export const ReportSummaryScreen: React.FC<ReportSummaryScreenProps> = ({
           }`
         : '';
 
-    const tweetText = `${header}${descLine}\n${dateLine}\n${locLine}\n\n${tagString}`;
+    const tweetText = `${header}${descLine}\n${dateLine}\n${locLine}\n\n#TraceApp #CivicAction`;
 
     // Attach full image URL so Twitter unfurls/embeds the evidence photo
     const fullImg = getFullImageUrl(report?.image_url);
@@ -137,19 +125,27 @@ export const ReportSummaryScreen: React.FC<ReportSummaryScreenProps> = ({
           </Text>
         </View>
 
-        {/* ─── 1. Issue Details ─────────────────────────────────────── */}
+        {/* ─── 1. Evidence Photo ─────────────────────────────────────── */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
             <View style={styles.stepBadge}>
               <Text style={styles.stepBadgeText}>1</Text>
             </View>
-            <Text style={styles.sectionTitle}>Issue</Text>
+            <Text style={styles.sectionTitle}>Evidence Photo</Text>
           </View>
-          <View style={styles.categoryPill}>
-            <Text style={styles.categoryEmoji}>{getEmoji(report?.category)}</Text>
-            <Text style={styles.categoryText}>{report?.category || 'Issue'}</Text>
-          </View>
-          <Text style={styles.descriptionText}>{cleanDescription}</Text>
+          {report?.image_url ? (
+            <View style={styles.imageWrapper}>
+              <Image
+                source={{ uri: getFullImageUrl(report.image_url) }}
+                style={styles.image}
+              />
+            </View>
+          ) : (
+            <View style={styles.emptyImageBox}>
+              <Text style={styles.emptyImageIcon}>📷</Text>
+              <Text style={styles.emptyImageText}>No image provided</Text>
+            </View>
+          )}
         </View>
 
         {/* ─── 2. Date and Time ─────────────────────────────────────── */}
@@ -158,7 +154,7 @@ export const ReportSummaryScreen: React.FC<ReportSummaryScreenProps> = ({
             <View style={styles.stepBadge}>
               <Text style={styles.stepBadgeText}>2</Text>
             </View>
-            <Text style={styles.sectionTitle}>Date and Time</Text>
+            <Text style={styles.sectionTitle}>Date & Time</Text>
           </View>
           <View style={styles.infoBox}>
             <Text style={styles.infoIcon}>📅</Text>
@@ -197,48 +193,19 @@ export const ReportSummaryScreen: React.FC<ReportSummaryScreenProps> = ({
           </View>
         </View>
 
-        {/* ─── 4. Image ────────────────────────────────────────────── */}
+        {/* ─── 4. Issue Details ─────────────────────────────────────── */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
             <View style={styles.stepBadge}>
               <Text style={styles.stepBadgeText}>4</Text>
             </View>
-            <Text style={styles.sectionTitle}>Image</Text>
+            <Text style={styles.sectionTitle}>Issue Details</Text>
           </View>
-          {report?.image_url ? (
-            <View style={styles.imageWrapper}>
-              <Image
-                source={{ uri: getFullImageUrl(report.image_url) }}
-                style={styles.image}
-              />
-            </View>
-          ) : (
-            <View style={styles.emptyImageBox}>
-              <Text style={styles.emptyImageIcon}>📷</Text>
-              <Text style={styles.emptyImageText}>No image provided</Text>
-            </View>
-          )}
-        </View>
-
-        {/* ─── 5. Some Tags ────────────────────────────────────────── */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={styles.stepBadge}>
-              <Text style={styles.stepBadgeText}>5</Text>
-            </View>
-            <Text style={styles.sectionTitle}>Tags</Text>
+          <View style={styles.categoryPill}>
+            <Text style={styles.categoryEmoji}>{getEmoji(report?.category)}</Text>
+            <Text style={styles.categoryText}>{report?.category || 'Issue'}</Text>
           </View>
-          {tags.length > 0 ? (
-            <View style={styles.tagsContainer}>
-              {tags.map((t, idx) => (
-                <View key={idx} style={styles.tagBadge}>
-                  <Text style={styles.tagBadgeText}>{t}</Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <Text style={styles.noTagsText}>No tags selected</Text>
-          )}
+          <Text style={styles.descriptionText}>{cleanDescription}</Text>
         </View>
 
         {/* ─── Action Buttons ──────────────────────────────────────── */}
@@ -458,31 +425,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   emptyImageText: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    fontStyle: 'italic',
-  },
-
-  /* Tags Section */
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  tagBadge: {
-    backgroundColor: '#EEF2FF',
-    borderColor: '#C7D2FE',
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  tagBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#4338CA',
-  },
-  noTagsText: {
     fontSize: 13,
     color: theme.colors.textSecondary,
     fontStyle: 'italic',
