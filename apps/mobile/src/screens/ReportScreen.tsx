@@ -44,6 +44,26 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
   const [tempLng, setTempLng] = useState(78.1828);
   const mapPickerWebViewRef = useRef<any>(null);
 
+  // Tags state
+  const [selectedTags, setSelectedTags] = useState<string[]>(['#Urgent']);
+
+  const availableTags = [
+    '#Urgent',
+    '#RoadSafety',
+    '#CleanCity',
+    '#WaterHazard',
+    '#Streetlight',
+    '#PublicHealth',
+    '#PedestrianRisk',
+    '#HighPriority',
+  ];
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev =>
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag],
+    );
+  };
+
   const reportDate = new Date();
   const dateString = reportDate.toLocaleDateString('en-US', {
     month: 'short',
@@ -358,7 +378,13 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
     try {
       const formData = new FormData();
       formData.append('category', issueType || 'Other');
-      formData.append('description', description);
+      
+      const tagString = selectedTags.length > 0 ? selectedTags.join(' ') : '';
+      const fullDescription = tagString
+        ? `${description.trim()}\n\nTags: ${tagString}`
+        : description.trim();
+
+      formData.append('description', fullDescription);
       formData.append('latitude', String(latitude));
       formData.append('longitude', String(longitude));
       if (address) {
@@ -381,7 +407,14 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
       // Navigate to summary screen passing the newly created report with clicked imageUri
       const reportForSummary = {
         ...response,
+        category: issueType || 'Other',
+        description: description,
+        tags: selectedTags,
+        address: address,
+        latitude: latitude,
+        longitude: longitude,
         image_url: imageUri || response?.image_url,
+        created_at: new Date().toISOString(),
       };
       navigation.replace('ReportSummary', { report: reportForSummary });
     } catch (e: any) {
@@ -406,151 +439,234 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ navigation }) => {
         keyboardShouldPersistTaps="handled">
         {/* Header */}
         <Text style={styles.title}>Report an Issue</Text>
+        <Text style={styles.subtitle}>Log a civic issue with evidence and location</Text>
 
-        {/* Photo Upload */}
-        <Text style={styles.label}>Upload Photo</Text>
-        {imageUri && (
-          <Image source={{ uri: imageUri }} style={styles.previewImage} />
-        )}
-        <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.outlineButton} onPress={handleCamera}>
-            <Text style={styles.outlineButtonIcon}>📷</Text>
-            <Text style={styles.outlineButtonLabel}>Camera</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.outlineButton}
-            onPress={handleGallery}>
-            <Text style={styles.outlineButtonIcon}>🖼️</Text>
-            <Text style={styles.outlineButtonLabel}>Gallery</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Date / Time */}
-        <View style={styles.dateContainer}>
-          <Text style={styles.dateText}>
-            {dateString} • {timeString}
-          </Text>
-          <Text style={styles.dateIcon}>📅</Text>
-        </View>
-
-        {/* Issue Type */}
-        <Text style={styles.label}>Issue Type</Text>
-        <TouchableOpacity
-          style={styles.dropdownButton}
-          onPress={() => setDropdownExpanded(!dropdownExpanded)}
-          activeOpacity={0.7}>
-          <Text
-            style={[
-              styles.dropdownButtonText,
-              !issueType && { color: theme.colors.textSecondary },
-            ]}>
-            {issueType || 'Select issue type'}
-          </Text>
-          <Text style={styles.dropdownArrow}>
-            {dropdownExpanded ? '▲' : '▼'}
-          </Text>
-        </TouchableOpacity>
-
-        {dropdownExpanded && (
-          <View style={styles.dropdown}>
-            {issueTypes.map((type, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.dropdownItem,
-                  index === issueTypes.length - 1 && { borderBottomWidth: 0 },
-                ]}
-                onPress={() => {
-                  setIssueType(type);
-                  setDropdownExpanded(false);
-                }}>
-                <Text
-                  style={[
-                    styles.dropdownItemText,
-                    issueType === type && {
-                      color: theme.colors.primary,
-                      fontWeight: '600',
-                    },
-                  ]}>
-                  {type}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* Description */}
-        <Text style={styles.label}>Description</Text>
-        <TextInput
-          style={styles.textArea}
-          value={description}
-          onChangeText={setDescription}
-          placeholder="Describe the issue..."
-          placeholderTextColor={theme.colors.textSecondary}
-          multiline
-          textAlignVertical="top"
-          maxLength={500}
-        />
-        <Text style={styles.charCount}>{description.length}/500</Text>
-
-        {/* Location */}
-        <Text style={styles.label}>Location</Text>
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[
-              styles.locationButton,
-              locationMode === 'live' && styles.locationButtonActive,
-            ]}
-            onPress={handleLiveLocation}>
-            <Text style={styles.locationButtonIcon}>📍</Text>
-            <Text
-              style={[
-                styles.locationButtonText,
-                locationMode === 'live' && styles.locationButtonTextActive,
-              ]}>
-              Live Location
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.locationButton,
-              locationMode === 'map' && styles.locationButtonActive,
-            ]}
-            onPress={handleSelectFromMap}>
-            <Text style={styles.locationButtonIcon}>🗺️</Text>
-            <Text
-              style={[
-                styles.locationButtonText,
-                locationMode === 'map' && styles.locationButtonTextActive,
-              ]}>
-              Select from Map
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Location Loading Indicator */}
-        {locationLoading && (
-          <View style={styles.locationLoadingContainer}>
-            <ActivityIndicator size="small" color={theme.colors.primary} />
-            <Text style={styles.locationLoadingText}>
-              Detecting location...
-            </Text>
-          </View>
-        )}
-
-        {/* Location Selected Card */}
-        {latitude && longitude && address && !locationLoading && (
-          <View style={styles.locationCard}>
-            <Text style={styles.locationCardTitle}>Location Selected</Text>
-            <View style={styles.locationCardRow}>
-              <View style={styles.locationPinCircle}>
-                <Text style={styles.locationPinIcon}>📍</Text>
-              </View>
-              <Text style={styles.locationAddress}>{address}</Text>
+        {/* ─── 1. Issue Details ─────────────────────────────────────── */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepBadgeText}>1</Text>
             </View>
+            <Text style={styles.sectionTitle}>Issue Details</Text>
           </View>
-        )}
+
+          <Text style={styles.label}>Issue Type</Text>
+          <TouchableOpacity
+            style={styles.dropdownButton}
+            onPress={() => setDropdownExpanded(!dropdownExpanded)}
+            activeOpacity={0.7}>
+            <Text
+              style={[
+                styles.dropdownButtonText,
+                !issueType && { color: theme.colors.textSecondary },
+              ]}>
+              {issueType || 'Select issue category...'}
+            </Text>
+            <Text style={styles.dropdownArrow}>
+              {dropdownExpanded ? '▲' : '▼'}
+            </Text>
+          </TouchableOpacity>
+
+          {dropdownExpanded && (
+            <View style={styles.dropdown}>
+              {issueTypes.map((type, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.dropdownItem,
+                    index === issueTypes.length - 1 && { borderBottomWidth: 0 },
+                  ]}
+                  onPress={() => {
+                    setIssueType(type);
+                    setDropdownExpanded(false);
+                  }}>
+                  <Text
+                    style={[
+                      styles.dropdownItemText,
+                      issueType === type && {
+                        color: theme.colors.primary,
+                        fontWeight: '700',
+                      },
+                    ]}>
+                    {type}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <Text style={[styles.label, { marginTop: 14 }]}>Description</Text>
+          <TextInput
+            style={styles.textArea}
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Describe the issue in detail (e.g. location cues, hazard level)..."
+            placeholderTextColor={theme.colors.textSecondary}
+            multiline
+            textAlignVertical="top"
+            maxLength={500}
+          />
+          <Text style={styles.charCount}>{description.length}/500</Text>
+        </View>
+
+        {/* ─── 2. Date and Time ─────────────────────────────────────── */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepBadgeText}>2</Text>
+            </View>
+            <Text style={styles.sectionTitle}>Date & Time</Text>
+          </View>
+          <View style={styles.dateContainer}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.dateText}>
+                {dateString} • {timeString}
+              </Text>
+              <Text style={styles.dateSubtext}>
+                Official verified timestamp recorded with report
+              </Text>
+            </View>
+            <Text style={styles.dateIcon}>📅</Text>
+          </View>
+        </View>
+
+        {/* ─── 3. Location ─────────────────────────────────────────── */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepBadgeText}>3</Text>
+            </View>
+            <Text style={styles.sectionTitle}>Location</Text>
+          </View>
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={[
+                styles.locationButton,
+                locationMode === 'live' && styles.locationButtonActive,
+              ]}
+              onPress={handleLiveLocation}>
+              <Text style={styles.locationButtonIcon}>📍</Text>
+              <Text
+                style={[
+                  styles.locationButtonText,
+                  locationMode === 'live' && styles.locationButtonTextActive,
+                ]}>
+                Live Location
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.locationButton,
+                locationMode === 'map' && styles.locationButtonActive,
+              ]}
+              onPress={handleSelectFromMap}>
+              <Text style={styles.locationButtonIcon}>🗺️</Text>
+              <Text
+                style={[
+                  styles.locationButtonText,
+                  locationMode === 'map' && styles.locationButtonTextActive,
+                ]}>
+                Select on Map
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Location Loading Indicator */}
+          {locationLoading && (
+            <View style={styles.locationLoadingContainer}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={styles.locationLoadingText}>
+                Detecting location coordinates...
+              </Text>
+            </View>
+          )}
+
+          {/* Location Selected Card */}
+          {latitude && longitude && address && !locationLoading && (
+            <View style={styles.locationCard}>
+              <Text style={styles.locationCardTitle}>Pinned Address</Text>
+              <View style={styles.locationCardRow}>
+                <View style={styles.locationPinCircle}>
+                  <Text style={styles.locationPinIcon}>📍</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.locationAddress}>{address}</Text>
+                  <Text style={styles.locationCoords}>
+                    {latitude.toFixed(5)}, {longitude.toFixed(5)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* ─── 4. Image ────────────────────────────────────────────── */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepBadgeText}>4</Text>
+            </View>
+            <Text style={styles.sectionTitle}>Evidence Photo</Text>
+          </View>
+
+          {imageUri && (
+            <View style={styles.imagePreviewWrapper}>
+              <Image source={{ uri: imageUri }} style={styles.previewImage} />
+              <TouchableOpacity
+                style={styles.removeImageBtn}
+                onPress={() => setImageUri(null)}>
+                <Text style={styles.removeImageText}>✕ Remove</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={styles.outlineButton} onPress={handleCamera}>
+              <Text style={styles.outlineButtonIcon}>📷</Text>
+              <Text style={styles.outlineButtonLabel}>Camera</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.outlineButton}
+              onPress={handleGallery}>
+              <Text style={styles.outlineButtonIcon}>🖼️</Text>
+              <Text style={styles.outlineButtonLabel}>Gallery</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ─── 5. Some Tags ────────────────────────────────────────── */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepBadgeText}>5</Text>
+            </View>
+            <Text style={styles.sectionTitle}>Tags</Text>
+          </View>
+          <Text style={styles.tagsSubtitle}>
+            Select tags to categorize and escalate priority:
+          </Text>
+          <View style={styles.tagsContainer}>
+            {availableTags.map(tag => {
+              const isSelected = selectedTags.includes(tag);
+              return (
+                <TouchableOpacity
+                  key={tag}
+                  style={[styles.tagChip, isSelected && styles.tagChipActive]}
+                  onPress={() => toggleTag(tag)}
+                  activeOpacity={0.7}>
+                  <Text
+                    style={[
+                      styles.tagChipText,
+                      isSelected && styles.tagChipTextActive,
+                    ]}>
+                    {isSelected ? `✓ ${tag}` : tag}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
 
         {/* Submit Button */}
         <TouchableOpacity
@@ -666,7 +782,51 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: 'bold',
     color: theme.colors.text,
-    marginBottom: 16,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginBottom: 20,
+  },
+
+  /* Step Section Cards */
+  sectionCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+    gap: 10,
+  },
+  stepBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: theme.colors.text,
   },
 
   /* Date */
@@ -674,21 +834,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: theme.colors.border,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    marginBottom: 20,
   },
   dateText: {
     fontSize: 15,
     color: theme.colors.text,
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  dateSubtext: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginTop: 3,
   },
   dateIcon: {
-    fontSize: 18,
+    fontSize: 22,
   },
 
   /* Labels */
@@ -765,16 +929,34 @@ const styles = StyleSheet.create({
   },
 
   /* Photo */
+  imagePreviewWrapper: {
+    position: 'relative',
+    marginBottom: 14,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
   previewImage: {
     width: '100%',
-    height: 180,
+    height: 200,
     borderRadius: 12,
-    marginBottom: 12,
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  removeImageText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   buttonRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 16,
   },
   outlineButton: {
     flex: 1,
@@ -875,6 +1057,44 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.text,
     lineHeight: 20,
+  },
+  locationCoords: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginTop: 3,
+  },
+
+  /* Tags */
+  tagsSubtitle: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    marginBottom: 12,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tagChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  tagChipActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  tagChipText: {
+    fontSize: 13,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  tagChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 
   /* Submit */
